@@ -1,5 +1,9 @@
 # OMMX adapter for Fixstars Amplify
 
+[![PyPI - Version](https://img.shields.io/pypi/v/ommx-fixstars-amplify-adapter)](https://pypi.org/project/ommx-fixstars-amplify-adapter/) 
+[![main](https://img.shields.io/badge/API_Reference-blue)](https://jij-inc.github.io/ommx-fixstars-amplify-adapter/)
+
+
 This package provides an adapter for the [Fixstars Amplify SDK](https://amplify.fixstars.com/ja/docs/amplify/v1/index.html) from/to [OMMX](https://github.com/Jij-Inc/ommx).
 
 ## How to install
