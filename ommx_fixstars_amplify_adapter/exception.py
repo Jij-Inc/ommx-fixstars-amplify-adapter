@@ -1,0 +1,2 @@
+class OMMXFixstarsAmplifyAdapterError(Exception):
+    pass
