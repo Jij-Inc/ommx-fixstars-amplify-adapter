@@ -1,0 +1,1 @@
+# ommx-fixstars-amplify-adapter
