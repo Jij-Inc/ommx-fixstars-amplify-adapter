@@ -99,7 +99,7 @@ print(state)
 ```
 
 > [!NOTE]
-> Currently, the `model_to_instance` function does not support ising variables. Therefore, if your model contains ising variables, you must convert them to binary variables. The following function can be used for this conversion.
+> Currently, the `model_to_instance` function does not support Ising variables. Therefore, if your model contains Ising variables, you must convert them to binary variables. The following function can be used for this conversion.
 > ```python
 > import typing
 > import amplify
