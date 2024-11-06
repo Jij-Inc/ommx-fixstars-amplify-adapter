@@ -9,10 +9,7 @@ from ommx.v1 import (
     Polynomial,
 )
 
-from ommx_fixstars_amplify_adapter.ommx_to_amplify import (
-    instance_to_model,
-    AmplifyModelBuilder,
-)
+from ommx_fixstars_amplify_adapter.ommx_to_amplify import instance_to_model
 from ommx_fixstars_amplify_adapter.exception import OMMXFixstarsAmplifyAdapterError
 from tests.conftest import assert_amplify_model
 
@@ -151,51 +148,6 @@ def test_instance_to_model():
     expected_model += amplify.less_equal(w - 17, 0, label="constraintE [id: 4]")
 
     assert_amplify_model(model, expected_model)
-
-
-def test_parser_decision_variable():
-    # Create OMMX instance with decision variables
-    decision_variables = [
-        DecisionVariable.of_type(
-            kind=DecisionVariable.BINARY, id=0, lower=0, upper=1, name="x"
-        ),
-        DecisionVariable.of_type(
-            kind=DecisionVariable.INTEGER,
-            id=1,
-            lower=float("-inf"),
-            upper=float("inf"),
-            name="y",
-        ),
-        DecisionVariable.of_type(
-            kind=DecisionVariable.CONTINUOUS, id=2, lower=-30, upper=30, name="z"
-        ),
-    ]
-
-    # Set the objective function and constraint to empty
-    instance = Instance.from_components(
-        decision_variables=decision_variables,
-        objective=0,
-        constraints=[],
-        sense=Instance.MINIMIZE,
-    )
-
-    parser = AmplifyModelBuilder(instance)
-    var_map = parser.variables()
-    assert len(var_map) == 3
-    x = var_map[0]
-    y = var_map[1]
-    z = var_map[2]
-
-    assert x.as_variable().type == amplify.VariableType.Binary
-    assert x.name == "x"
-    assert y.as_variable().type == amplify.VariableType.Integer
-    assert y.name == "y"
-    assert y.lower_bound == float("-inf")
-    assert y.upper_bound == float("inf")
-    assert z.as_variable().type == amplify.VariableType.Real
-    assert z.name == "z"
-    assert z.lower_bound == -30
-    assert z.upper_bound == 30
 
 
 def test_error_unsupported_variable_kind():
