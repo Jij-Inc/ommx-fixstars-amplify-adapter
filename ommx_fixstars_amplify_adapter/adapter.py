@@ -1,6 +1,5 @@
 import amplify
 
-import datetime
 
 
 from ommx.v1 import (
@@ -11,6 +10,7 @@ from ommx.v1 import (
     Quadratic,
     Polynomial,
     Constraint,
+    State,
 )
 from ommx.v1.function_pb2 import Function
 from ommx.adapter import SolverAdapter
@@ -23,7 +23,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         self.instance = ommx_instance
         self.model = amplify.Model()
 
-        self._set_decision_variable()
+        self._set_decision_variables()
         self._set_objective()
         self._set_constraints()
 
@@ -45,28 +45,45 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         return self.model
 
     def decode(self, data: amplify.Result) -> Solution:
-        pass
+        # TODO infeasible/unbounded detection
+        state = self.decode_to_state(data)
+        solution = self.instance.evaluate(state)
+
+        return solution
+
+    def decode_to_state(self, data: amplify.Result) -> State:
+        try:
+            return State(
+                entries={
+                    key: value.evaluate(data.best.values)
+                    for key, value in self.variable_map.items()
+                }
+            )
+        except RuntimeError as e:
+            raise OMMXFixstarsAmplifyAdapterError(
+                f"Failed to create ommx.v1.State: {str(e)}"
+            )
 
     def _set_decision_variables(self):
         self.variable_map = {}
         gen = amplify.VariableGenerator()
         for var in self.instance.raw.decision_variables:
-            if var.kind == DecisionVariable.Kind.KIND_BINARY:
+            if var.kind == DecisionVariable.BINARY:
                 amplify_var = gen.scalar(
                     "Binary",
-                    name=self._make_variable_label(var),
+                    name=_make_variable_label(var),
                 )
-            elif var.kind == DecisionVariable.Kind.KIND_INTEGER:
+            elif var.kind == DecisionVariable.INTEGER:
                 amplify_var = gen.scalar(
                     "Integer",
                     bounds=(var.bound.lower, var.bound.upper),
-                    name=self._make_variable_label(var),
+                    name=_make_variable_label(var),
                 )
-            elif var.kind == DecisionVariable.Kind.KIND_CONTINUOUS:
+            elif var.kind == DecisionVariable.CONTINUOUS:
                 amplify_var = gen.scalar(
                     "Real",
                     bounds=(var.bound.lower, var.bound.upper),
-                    name=self._make_variable_label(var),
+                    name=_make_variable_label(var),
                 )
             else:
                 raise OMMXFixstarsAmplifyAdapterError(
@@ -154,3 +171,11 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
 
 def _make_constraint_label(constraint: Constraint) -> str:
     return f"{constraint.name} [id: {constraint.id}]"
+
+
+def _make_variable_label(variable: DecisionVariable) -> str:
+    if len(variable.subscripts) == 0:
+        return variable.name
+    else:
+        subscripts_str = "{" + ", ".join(map(str, variable.subscripts)) + "}"
+        return f"{variable.name}_{subscripts_str}"
