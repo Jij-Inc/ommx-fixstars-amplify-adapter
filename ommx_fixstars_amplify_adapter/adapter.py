@@ -1,6 +1,6 @@
 import amplify
 
-
+from typing import Union
 
 from ommx.v1 import (
     Solution,
@@ -119,7 +119,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
                 )
 
     def _function_to_poly(
-        self, func: float | Linear | Quadratic | Polynomial | Function
+        self, func: Union[float, Linear, Quadratic, Polynomial, Function]
     ) -> amplify.Poly:
         if isinstance(func, (float, int)):
             return amplify.Poly(float(func))
