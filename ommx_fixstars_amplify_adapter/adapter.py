@@ -14,6 +14,8 @@ from ommx.adapter import SolverAdapter
 from ommx.v1.linear_pb2 import Linear
 from ommx.v1.quadratic_pb2 import Quadratic
 from ommx.v1.polynomial_pb2 import Polynomial
+from ommx.v1.constraint_pb2 import Constraint as RawConstraint
+from ommx.v1.decision_variables_pb2 import DecisionVariable as RawDVar
 
 from .exception import OMMXFixstarsAmplifyAdapterError
 
@@ -169,13 +171,11 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             )
 
 
-def _make_constraint_label(constraint: ommx.v1.constraint_pb2.Constraint) -> str:
+def _make_constraint_label(constraint: RawConstraint) -> str:
     return f"{constraint.name} [id: {constraint.id}]"
 
 
-def _make_variable_label(
-    variable: ommx.v1.decision_variables_pb2.DecisionVariable,
-) -> str:
+def _make_variable_label(variable: RawDVar) -> str:
     if len(variable.subscripts) == 0:
         return variable.name
     else:
