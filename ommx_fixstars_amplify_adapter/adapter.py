@@ -6,14 +6,14 @@ from ommx.v1 import (
     Solution,
     Instance,
     DecisionVariable,
-    Linear,
-    Quadratic,
-    Polynomial,
     Constraint,
     State,
 )
 from ommx.v1.function_pb2 import Function
 from ommx.adapter import SolverAdapter
+from ommx.v1.linear_pb2 import Linear
+from ommx.v1.quadratic_pb2 import Quadratic
+from ommx.v1.polynomial_pb2 import Polynomial
 
 from .exception import OMMXFixstarsAmplifyAdapterError
 
@@ -105,7 +105,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
     def _set_constraints(self):
         for constr in self.instance.raw.constraints:
             function_poly = self._function_to_poly(constr.function)
-            if constr.equality == Constraint.EQUALITY_EQUAL_TO_ZERO:
+            if constr.equality == Constraint.EQUAL_TO_ZERO:
                 self.model += amplify.equal_to(
                     function_poly, 0, label=_make_constraint_label(constr)
                 )
