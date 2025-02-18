@@ -169,11 +169,13 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             )
 
 
-def _make_constraint_label(constraint: Constraint) -> str:
+def _make_constraint_label(constraint: ommx.v1.constraint_pb2.Constraint) -> str:
     return f"{constraint.name} [id: {constraint.id}]"
 
 
-def _make_variable_label(variable: DecisionVariable) -> str:
+def _make_variable_label(
+    variable: ommx.v1.decision_variables_pb2.DecisionVariable,
+) -> str:
     if len(variable.subscripts) == 0:
         return variable.name
     else:
