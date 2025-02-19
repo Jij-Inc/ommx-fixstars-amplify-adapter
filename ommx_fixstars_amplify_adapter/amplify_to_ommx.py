@@ -10,7 +10,6 @@ from ommx.v1 import (
     Linear,
     Polynomial,
     Quadratic,
-    State,
 )
 from ommx.v1.function_pb2 import Function
 
@@ -244,47 +243,3 @@ def model_to_instance(model: amplify.Model) -> Instance:
     """
     builder = OMMXInstanceBuilder(model)
     return builder.build()
-
-
-def result_to_state(
-    result: amplify.Result, variable_map: typing.Dict[int, amplify.Poly]
-) -> State:
-    """
-    The function to create an ommx.v1.State from an amplify.Result.
-
-    Example:
-    =========
-    The following example shows how to solve an unconstrained linear optimization problem with `x` as the objective function.
-
-    .. doctest::
-
-        >>> from ommx_fixstars_amplify_adapter import instance_to_model, result_to_state
-        >>> from ommx.v1 import Instance, DecisionVariable, Linear
-        >>>
-        >>> x1 = DecisionVariable.integer(1, lower=0, upper=5)
-        >>> ommx_instance = Instance.from_components(
-        ...     decision_variables=[x1],
-        ...     objective=x1,
-        ...     constraints=[],
-        ...     sense=Instance.MINIMIZE,
-        ... )
-        >>>
-        >>> model, variable_map = instance_to_model(ommx_instance)
-        >>> client = amplify.FixstarsClient()
-        >>> client.token = "YOUR API TOKEN" # Set your API token
-        >>> client.parameters.timeout = 1000
-        >>> result = amplify.solve(model, client)  # doctest: +SKIP
-        >>> state = result_to_state(result, variable_map)  # doctest: +SKIP
-
-    """
-    try:
-        return State(
-            entries={
-                key: value.evaluate(result.best.values)
-                for key, value in variable_map.items()
-            }
-        )
-    except RuntimeError as e:
-        raise OMMXFixstarsAmplifyAdapterError(
-            f"Failed to create ommx.v1.State: {str(e)}"
-        )

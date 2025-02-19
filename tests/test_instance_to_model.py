@@ -9,9 +9,9 @@ from ommx.v1 import (
     Polynomial,
 )
 
-from ommx_fixstars_amplify_adapter.ommx_to_amplify import instance_to_model
 from ommx_fixstars_amplify_adapter.exception import OMMXFixstarsAmplifyAdapterError
-from tests.conftest import assert_amplify_model
+from ommx_fixstars_amplify_adapter.adapter import OMMXFixstarsAmplifyAdapter
+from conftest import assert_amplify_model
 
 
 def test_instance_to_model():
@@ -122,7 +122,8 @@ def test_instance_to_model():
         sense=Instance.MINIMIZE,
     )
 
-    model, _ = instance_to_model(instance)
+    adapter = OMMXFixstarsAmplifyAdapter(instance)
+    model = adapter.solver_input
 
     # Construct the expected model
     gen = amplify.VariableGenerator()
@@ -166,4 +167,4 @@ def test_error_unsupported_variable_kind():
     )
 
     with pytest.raises(OMMXFixstarsAmplifyAdapterError):
-        instance_to_model(instance)
+        OMMXFixstarsAmplifyAdapter(instance)

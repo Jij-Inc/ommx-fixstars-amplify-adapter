@@ -37,7 +37,7 @@ For example, the following problem formulated in OMMX can be solved using Fixsta
 ```python
 import amplify
 from ommx.v1 import Instance, DecisionVariable
-from ommx_fixstars_amplify_adapter import instance_to_model, result_to_state
+from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
 
 q_0 = DecisionVariable.binary(id=0, name="q_0")
 q_1 = DecisionVariable.binary(id=1, name="q_1")
@@ -49,11 +49,9 @@ ommx_instance = Instance.from_components(
     sense=Instance.MAXIMIZE,
 )
 
-model, variable_map = instance_to_model(ommx_instance)
-client = amplify.FixstarsClient(token="***FIXSTARS AMPLIFY TOKEN***")
-result = amplify.solve(model, client=client)
-state = result_to_state(result, variable_map)
-print(state)
+token = "***FIXSTARS AMPLIFY TOKEN***"
+solution = OMMXFixstarsAmplifyAdapter.solve(ommx_instance, amplify_token=token)
+print(solution)
 ```
 
 ## Solve problems formulated in Fixstars Amplify SDK with other solvers
@@ -77,7 +75,7 @@ For example, the following mixed integer programming problem formulated in Fixst
 ```python
 import amplify
 from ommx_fixstars_amplify_adapter import model_to_instance
-from ommx_python_mip_adapter import instance_to_model, model_to_solution
+from ommx_python_mip_adapter import OMMXPythonMIPAdapter
 
 UPPER = float("inf")
 LOWER = 0.0
@@ -92,10 +90,8 @@ model += amplify.less_equal(x, 1)
 model += amplify.less_equal(20 * x + y, 100)
 
 ommx_instance = model_to_instance(model)
-model = instance_to_model(ommx_instance)
-model.optimize()
-state = model_to_solution(model, ommx_instance)
-print(state)
+solution = OMMXPythoMIPAdapter.solve(ommx_instance)
+print(solution)
 ```
 
 > [!NOTE]
