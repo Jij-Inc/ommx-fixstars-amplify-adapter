@@ -50,7 +50,7 @@ ommx_instance = Instance.from_components(
 )
 
 token = "***FIXSTARS AMPLIFY TOKEN***"
-solution = OMMXFixstarsAmplifyAdapter.solve(ommx_instance, token)
+solution = OMMXFixstarsAmplifyAdapter.solve(ommx_instance, amplify_token=token)
 print(solution)
 ```
 
@@ -90,7 +90,7 @@ model += amplify.less_equal(x, 1)
 model += amplify.less_equal(20 * x + y, 100)
 
 ommx_instance = model_to_instance(model)
-solution = OMMXPythoMIPAdapter.solve(ommx_instance, token)
+solution = OMMXPythoMIPAdapter.solve(ommx_instance)
 print(solution)
 ```
 
