@@ -10,7 +10,6 @@ from ommx.v1 import (
     Linear,
     Polynomial,
     Quadratic,
-    State,
 )
 from ommx.v1.function_pb2 import Function
 
@@ -244,4 +243,3 @@ def model_to_instance(model: amplify.Model) -> Instance:
     """
     builder = OMMXInstanceBuilder(model)
     return builder.build()
-
