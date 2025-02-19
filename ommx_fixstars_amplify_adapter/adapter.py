@@ -34,7 +34,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
 
     @staticmethod
     def solve(
-        ommx_instance: Instance, amplify_token: str = "", timeout: int = 1000
+        ommx_instance: Instance, *, amplify_token: str = "", timeout: int = 1000
     ) -> Solution:
         """Solve the given ommx.v1.Instance using Fixstars Amplify, returning an
         ommx.v1.Solution.
@@ -77,7 +77,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         client.token = amplify_token
         client.parameters.timeout = timeout
 
-        result = amplify.solve(adapter.model, client)
+        result = amplify.solve(adapter.solver_input, client)
         return adapter.decode(result)
 
     @property
