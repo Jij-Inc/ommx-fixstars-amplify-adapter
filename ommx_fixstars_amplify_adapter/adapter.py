@@ -32,9 +32,9 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         self._set_objective()
         self._set_constraints()
 
-    @staticmethod
+    @classmethod
     def solve(
-        ommx_instance: Instance, *, amplify_token: str = "", timeout: int = 1000
+        cls, ommx_instance: Instance, *, amplify_token: str = "", timeout: int = 1000
     ) -> Solution:
         """Solve the given ommx.v1.Instance using Fixstars Amplify, returning an
         ommx.v1.Solution.
@@ -71,7 +71,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
                 "No Fixstars Amplify token specificed -- cannot instantiate client"
             )
 
-        adapter = OMMXFixstarsAmplifyAdapter(ommx_instance)
+        adapter = cls(ommx_instance)
 
         client = amplify.FixstarsClient()
         client.token = amplify_token
