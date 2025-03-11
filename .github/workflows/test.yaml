@@ -27,24 +27,24 @@ jobs:
       - name: Install Dependencies
         run: |
           uv sync --all-extras
-          pip install pytest-github-actions-annotate-failures
+          uv pip install pytest-github-actions-annotate-failures
 
       - name: Type check
         if: always()
         run: |
-          pyright
+          uv run pyright
 
       - name: Lint
         if: always()
         run: |
-          ruff check
+          uv run ruff check
 
       - name: Check format
         if: always()
         run: |
-          ruff format --check
+          uv run ruff format --check
 
       - name: Run Tests
         if: always()
         run: |
-          pytest --doctest-modules -vv
+          uv run pytest --doctest-modules -vv
