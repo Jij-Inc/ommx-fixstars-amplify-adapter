@@ -3,15 +3,14 @@ from dataclasses import dataclass
 
 import amplify
 from ommx.v1 import (
-    as_function,
     Constraint,
     DecisionVariable,
     Instance,
     Linear,
     Polynomial,
     Quadratic,
+    Function,
 )
-from ommx.v1.function_pb2 import Function
 
 from .exception import OMMXFixstarsAmplifyAdapterError
 
@@ -107,16 +106,19 @@ class OMMXInstanceBuilder:
             objective = self.model.objective.to_poly()
         else:
             objective = self.model.objective
-        return as_function(self._poly_to_ommx(objective))
+        return Function(self._poly_to_ommx(objective))
 
     def constraints(self) -> typing.List[Constraint]:
         constraints = []
+        counter = -1
         for constraint in self.model.constraints:
+            counter += 1
             # Case: `amplify.less_than`
             if constraint.conditional[1] == "LE":
                 assert isinstance(constraint.conditional[2], float)
                 constraints.append(
                     Constraint(
+                        id=counter,
                         function=self._poly_to_ommx(
                             constraint.conditional[0],
                             constraint.conditional[2],
@@ -130,6 +132,7 @@ class OMMXInstanceBuilder:
                 assert isinstance(constraint.conditional[2], float)
                 constraints.append(
                     Constraint(
+                        id=counter,
                         function=self._poly_to_ommx(
                             constraint.conditional[0],
                             constraint.conditional[2],
@@ -144,6 +147,7 @@ class OMMXInstanceBuilder:
                 # Convert to `LESS_THAN_OR_EQUAL_TO_ZERO` constraint.
                 constraints.append(
                     Constraint(
+                        id=counter,
                         function=self._poly_to_ommx(
                             -1 * constraint.conditional[0],
                             -1 * constraint.conditional[2],
@@ -158,6 +162,7 @@ class OMMXInstanceBuilder:
                 # Split into two `LESS_THAN_OR_EQUAL_TO_ZERO` constraints.
                 constraints.append(
                     Constraint(
+                        id=counter,
                         function=self._poly_to_ommx(
                             -1 * constraint.conditional[0],
                             -1 * constraint.conditional[2][0],
@@ -166,8 +171,10 @@ class OMMXInstanceBuilder:
                         name=constraint.label + "_lower",
                     )
                 )
+                counter += 1
                 constraints.append(
                     Constraint(
+                        id=counter,
                         function=self._poly_to_ommx(
                             constraint.conditional[0],
                             constraint.conditional[2][1],

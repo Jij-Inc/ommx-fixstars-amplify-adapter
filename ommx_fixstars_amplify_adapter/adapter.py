@@ -1,21 +1,14 @@
 import amplify
 
-from typing import Union
-
 from ommx.v1 import (
     Solution,
     Instance,
     DecisionVariable,
     Constraint,
+    Function,
     State,
 )
-from ommx.v1.function_pb2 import Function
 from ommx.adapter import SolverAdapter
-from ommx.v1.linear_pb2 import Linear
-from ommx.v1.quadratic_pb2 import Quadratic
-from ommx.v1.polynomial_pb2 import Polynomial
-from ommx.v1.constraint_pb2 import Constraint as RawConstraint
-from ommx.v1.decision_variables_pb2 import DecisionVariable as RawDVar
 
 from .exception import OMMXFixstarsAmplifyAdapterError
 
@@ -175,7 +168,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
     def _set_decision_variables(self):
         self.variable_map = {}
         gen = amplify.VariableGenerator()
-        for var in self.instance.raw.decision_variables:
+        for var in self.instance.get_decision_variables():
             if var.kind == DecisionVariable.BINARY:
                 amplify_var = gen.scalar(
                     "Binary",
@@ -200,18 +193,18 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             self.variable_map[var.id] = amplify_var
 
     def _set_objective(self):
-        obj_poly = self._function_to_poly(self.instance.raw.objective)
-        if self.instance.raw.sense == Instance.MINIMIZE:
+        obj_poly = self._function_to_poly(self.instance.objective)
+        if self.instance.sense == Instance.MINIMIZE:
             self.model += obj_poly
-        elif self.instance.raw.sense == Instance.MAXIMIZE:
+        elif self.instance.sense == Instance.MAXIMIZE:
             self.model += -obj_poly
         else:
             raise OMMXFixstarsAmplifyAdapterError(
-                f"Unknown sense: {self.instance.raw.sense}"
+                f"Unknown sense: {self.instance.sense}"
             )
 
     def _set_constraints(self):
-        for constr in self.instance.raw.constraints:
+        for constr in self.instance.get_constraints():
             function_poly = self._function_to_poly(constr.function)
             if constr.equality == Constraint.EQUAL_TO_ZERO:
                 self.model += amplify.equal_to(
@@ -227,61 +220,26 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
                 )
 
     def _function_to_poly(
-        self, func: Union[float, Linear, Quadratic, Polynomial, Function]
+        self,
+        func: Function,
     ) -> amplify.Poly:
-        if isinstance(func, (float, int)):
-            return amplify.Poly(float(func))
-
-        elif isinstance(func, Linear):
-            poly = amplify.Poly(func.constant)
-            for term in func.terms:
-                var = self.variable_map[term.id]
-                poly += term.coefficient * var
-            return poly
-
-        elif isinstance(func, Quadratic):
-            poly = amplify.Poly()
-            for col, row, value in zip(func.columns, func.rows, func.values):
-                var_col = self.variable_map[col]
-                var_row = self.variable_map[row]
-                poly += value * var_col * var_row
-            poly += self._function_to_poly(func.linear)
-            return poly
-
-        elif isinstance(func, Polynomial):
-            poly = amplify.Poly()
-            for monomial in func.terms:
-                term = monomial.coefficient
-                for var_id in monomial.ids:
-                    term *= self.variable_map[var_id]
-                poly += term
-            return poly
-
-        elif isinstance(func, Function):
-            if func.HasField("constant"):
-                return amplify.Poly(func.constant)
-            if func.HasField("linear"):
-                return self._function_to_poly(func.linear)
-            elif func.HasField("quadratic"):
-                return self._function_to_poly(func.quadratic)
-            elif func.HasField("polynomial"):
-                return self._function_to_poly(func.polynomial)
+        poly = amplify.Poly(0)
+        for ids, coefficient in func.terms.items():
+            if len(ids) == 0:
+                poly += coefficient
             else:
-                raise OMMXFixstarsAmplifyAdapterError(
-                    f"Unknown fields in Function: {func}"
-                )
-
-        else:
-            raise OMMXFixstarsAmplifyAdapterError(
-                f"Unknown function type: {type(func)}"
-            )
+                term = coefficient
+                for id in ids:
+                    term *= self.variable_map[id]
+                poly += term
+        return poly
 
 
-def _make_constraint_label(constraint: RawConstraint) -> str:
+def _make_constraint_label(constraint: Constraint) -> str:
     return f"{constraint.name} [id: {constraint.id}]"
 
 
-def _make_variable_label(variable: RawDVar) -> str:
+def _make_variable_label(variable: DecisionVariable) -> str:
     if len(variable.subscripts) == 0:
         return variable.name
     else:
