@@ -61,19 +61,17 @@ class OMMXInstanceBuilder:
 
         return decision_variables
 
-    def _poly_to_ommx(
-        self, poly: amplify.Poly, constant: float = 0.0
-    ) -> typing.Union[float, Linear, Quadratic, Polynomial]:
+    def _poly_to_ommx(self, poly: amplify.Poly, constant: float = 0.0) -> Function:
         """
         Convert from the polynomial of the Fixstars Amplify SDK to the object of ommx.v1.
         """
         poly_dict = poly.as_dict()
         if poly.degree() <= 0:
-            return poly_dict.pop((), 0.0) - constant
+            return Function(poly_dict.pop((), 0.0) - constant)
         elif poly.degree() == 1:
             constant = poly_dict.pop((), 0.0) - constant
             terms = {key[0]: value for key, value in poly_dict.items()}
-            return Linear(terms=terms, constant=constant)
+            return Function(Linear(terms=terms, constant=constant))
         elif poly.degree() == 2:
             constant = poly_dict.pop((), 0.0) - constant
             columns = []
@@ -87,11 +85,13 @@ class OMMXInstanceBuilder:
                     values.append(value)
                 elif len(key) == 1:
                     terms[key[0]] = value
-            return Quadratic(
-                columns=columns,
-                rows=rows,
-                values=values,
-                linear=Linear(terms=terms, constant=constant),
+            return Function(
+                Quadratic(
+                    columns=columns,
+                    rows=rows,
+                    values=values,
+                    linear=Linear(terms=terms, constant=constant),
+                )
             )
         else:
             constant = poly_dict.pop((), 0.0) - constant
@@ -99,14 +99,14 @@ class OMMXInstanceBuilder:
             for key, value in poly_dict.items():
                 terms[key] = value
             terms[()] = constant
-            return Polynomial(terms=terms)
+            return Function(Polynomial(terms=terms))
 
     def objective(self) -> Function:
         if isinstance(self.model.objective, amplify.Matrix):
             objective = self.model.objective.to_poly()
         else:
             objective = self.model.objective
-        return Function(self._poly_to_ommx(objective))
+        return self._poly_to_ommx(objective)
 
     def constraints(self) -> typing.List[Constraint]:
         constraints = []
