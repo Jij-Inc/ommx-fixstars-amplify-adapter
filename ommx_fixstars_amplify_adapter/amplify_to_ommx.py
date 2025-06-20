@@ -3,15 +3,14 @@ from dataclasses import dataclass
 
 import amplify
 from ommx.v1 import (
-    as_function,
     Constraint,
     DecisionVariable,
     Instance,
     Linear,
     Polynomial,
     Quadratic,
+    Function,
 )
-from ommx.v1.function_pb2 import Function
 
 from .exception import OMMXFixstarsAmplifyAdapterError
 
@@ -62,19 +61,17 @@ class OMMXInstanceBuilder:
 
         return decision_variables
 
-    def _poly_to_ommx(
-        self, poly: amplify.Poly, constant: float = 0.0
-    ) -> typing.Union[float, Linear, Quadratic, Polynomial]:
+    def _poly_to_ommx(self, poly: amplify.Poly, constant: float = 0.0) -> Function:
         """
         Convert from the polynomial of the Fixstars Amplify SDK to the object of ommx.v1.
         """
         poly_dict = poly.as_dict()
         if poly.degree() <= 0:
-            return poly_dict.pop((), 0.0) - constant
+            return Function(poly_dict.pop((), 0.0) - constant)
         elif poly.degree() == 1:
             constant = poly_dict.pop((), 0.0) - constant
             terms = {key[0]: value for key, value in poly_dict.items()}
-            return Linear(terms=terms, constant=constant)
+            return Function(Linear(terms=terms, constant=constant))
         elif poly.degree() == 2:
             constant = poly_dict.pop((), 0.0) - constant
             columns = []
@@ -88,11 +85,13 @@ class OMMXInstanceBuilder:
                     values.append(value)
                 elif len(key) == 1:
                     terms[key[0]] = value
-            return Quadratic(
-                columns=columns,
-                rows=rows,
-                values=values,
-                linear=Linear(terms=terms, constant=constant),
+            return Function(
+                Quadratic(
+                    columns=columns,
+                    rows=rows,
+                    values=values,
+                    linear=Linear(terms=terms, constant=constant),
+                )
             )
         else:
             constant = poly_dict.pop((), 0.0) - constant
@@ -100,23 +99,26 @@ class OMMXInstanceBuilder:
             for key, value in poly_dict.items():
                 terms[key] = value
             terms[()] = constant
-            return Polynomial(terms=terms)
+            return Function(Polynomial(terms=terms))
 
     def objective(self) -> Function:
         if isinstance(self.model.objective, amplify.Matrix):
             objective = self.model.objective.to_poly()
         else:
             objective = self.model.objective
-        return as_function(self._poly_to_ommx(objective))
+        return self._poly_to_ommx(objective)
 
     def constraints(self) -> typing.List[Constraint]:
         constraints = []
+        counter = -1
         for constraint in self.model.constraints:
+            counter += 1
             # Case: `amplify.less_than`
             if constraint.conditional[1] == "LE":
                 assert isinstance(constraint.conditional[2], float)
                 constraints.append(
                     Constraint(
+                        id=counter,
                         function=self._poly_to_ommx(
                             constraint.conditional[0],
                             constraint.conditional[2],
@@ -130,6 +132,7 @@ class OMMXInstanceBuilder:
                 assert isinstance(constraint.conditional[2], float)
                 constraints.append(
                     Constraint(
+                        id=counter,
                         function=self._poly_to_ommx(
                             constraint.conditional[0],
                             constraint.conditional[2],
@@ -144,6 +147,7 @@ class OMMXInstanceBuilder:
                 # Convert to `LESS_THAN_OR_EQUAL_TO_ZERO` constraint.
                 constraints.append(
                     Constraint(
+                        id=counter,
                         function=self._poly_to_ommx(
                             -1 * constraint.conditional[0],
                             -1 * constraint.conditional[2],
@@ -158,6 +162,7 @@ class OMMXInstanceBuilder:
                 # Split into two `LESS_THAN_OR_EQUAL_TO_ZERO` constraints.
                 constraints.append(
                     Constraint(
+                        id=counter,
                         function=self._poly_to_ommx(
                             -1 * constraint.conditional[0],
                             -1 * constraint.conditional[2][0],
@@ -166,8 +171,10 @@ class OMMXInstanceBuilder:
                         name=constraint.label + "_lower",
                     )
                 )
+                counter += 1
                 constraints.append(
                     Constraint(
+                        id=counter,
                         function=self._poly_to_ommx(
                             constraint.conditional[0],
                             constraint.conditional[2][1],
