@@ -23,7 +23,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "ommx >= 2.0.0b3, < 3.0.0",
+    "ommx >= 2.0.0rc1, < 3.0.0",
     "amplify >= 1.2.0, < 2.0.0", 
 ]
 
