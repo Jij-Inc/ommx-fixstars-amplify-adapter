@@ -39,29 +39,29 @@ def test_model_to_instance():
 
     assert len(ommx_instance.decision_variables) == 4
     # Check the decision variable `x`
-    assert ommx_instance.get_decision_variable_by_id(0).kind == DecisionVariable.BINARY
-    assert ommx_instance.get_decision_variable_by_id(0).name == "x"
-    assert ommx_instance.get_decision_variable_by_id(0).bound.lower == 0
-    assert ommx_instance.get_decision_variable_by_id(0).bound.upper == 1
+    ommx_decision_variable_x = ommx_instance.get_decision_variable_by_id(0)
+    assert ommx_decision_variable_x.kind == DecisionVariable.BINARY
+    assert ommx_decision_variable_x.name == "x"
+    assert ommx_decision_variable_x.bound.lower == 0
+    assert ommx_decision_variable_x.bound.upper == 1
     # Check the decision variable `y`
-    assert ommx_instance.get_decision_variable_by_id(1).kind == DecisionVariable.INTEGER
-    assert ommx_instance.get_decision_variable_by_id(1).name == "y"
-    assert ommx_instance.get_decision_variable_by_id(1).bound.lower == -20
-    assert ommx_instance.get_decision_variable_by_id(1).bound.upper == 20
+    ommx_decision_variable_y = ommx_instance.get_decision_variable_by_id(1)
+    assert ommx_decision_variable_y.kind == DecisionVariable.INTEGER
+    assert ommx_decision_variable_y.name == "y"
+    assert ommx_decision_variable_y.bound.lower == -20
+    assert ommx_decision_variable_y.bound.upper == 20
     # Check the decision variable `z`
-    assert (
-        ommx_instance.get_decision_variable_by_id(2).kind == DecisionVariable.CONTINUOUS
-    )
-    assert ommx_instance.get_decision_variable_by_id(2).name == "z"
-    assert ommx_instance.get_decision_variable_by_id(2).bound.lower == -30
-    assert ommx_instance.get_decision_variable_by_id(2).bound.upper == 30
+    ommx_decision_variable_z = ommx_instance.get_decision_variable_by_id(2)
+    assert ommx_decision_variable_z.kind == DecisionVariable.CONTINUOUS
+    assert ommx_decision_variable_z.name == "z"
+    assert ommx_decision_variable_z.bound.lower == -30
+    assert ommx_decision_variable_z.bound.upper == 30
     # Check the decision variable `w`
-    assert (
-        ommx_instance.get_decision_variable_by_id(3).kind == DecisionVariable.CONTINUOUS
-    )
-    assert ommx_instance.get_decision_variable_by_id(3).name == "w"
-    assert ommx_instance.get_decision_variable_by_id(3).bound.lower == float("-inf")
-    assert ommx_instance.get_decision_variable_by_id(3).bound.upper == float("inf")
+    ommx_decision_variable_w = ommx_instance.get_decision_variable_by_id(3)
+    assert ommx_decision_variable_w.kind == DecisionVariable.CONTINUOUS
+    assert ommx_decision_variable_w.name == "w"
+    assert ommx_decision_variable_w.bound.lower == float("-inf")
+    assert ommx_decision_variable_w.bound.upper == float("inf")
 
     # Check the objective function: 2xyz + 3yz + 4z + 5
     assert ommx_instance.objective.terms == {
@@ -75,11 +75,9 @@ def test_model_to_instance():
     assert len(ommx_instance.constraints) == 5
 
     # Check the first constraint: 6x + 7y + 8z -9 <= 0
-    assert (
-        ommx_instance.get_constraint_by_id(0).equality
-        == Constraint.LESS_THAN_OR_EQUAL_TO_ZERO
-    )
-    assert ommx_instance.get_constraint_by_id(0).function.terms == {
+    ommx_constraint_first = ommx_instance.get_constraint_by_id(0)
+    assert ommx_constraint_first.equality == Constraint.LESS_THAN_OR_EQUAL_TO_ZERO
+    assert ommx_constraint_first.function.terms == {
         (0,): 6.0,
         (1,): 7.0,
         (2,): 8.0,
@@ -87,8 +85,9 @@ def test_model_to_instance():
     }
 
     # Check the second constraint: 10xy + 11yz + 12xz -13 = 0
-    assert ommx_instance.get_constraint_by_id(1).equality == Constraint.EQUAL_TO_ZERO
-    assert ommx_instance.get_constraint_by_id(1).function.terms == {
+    ommx_constraint_second = ommx_instance.get_constraint_by_id(1)
+    assert ommx_constraint_second.equality == Constraint.EQUAL_TO_ZERO
+    assert ommx_constraint_second.function.terms == {
         (0, 1): 10.0,
         (1, 2): 11.0,
         (0, 2): 12.0,
@@ -96,29 +95,27 @@ def test_model_to_instance():
     }
 
     # Check the third constraint: 14xyz -15 >= 0
-    assert (
-        ommx_instance.get_constraint_by_id(2).equality
-        == Constraint.LESS_THAN_OR_EQUAL_TO_ZERO
-    )
-    assert ommx_instance.get_constraint_by_id(2).function.terms == {
+    ommx_constraint_third = ommx_instance.get_constraint_by_id(2)
+    assert ommx_constraint_third.equality == Constraint.LESS_THAN_OR_EQUAL_TO_ZERO
+    assert ommx_constraint_third.function.terms == {
         (0, 1, 2): -14.0,
         (): 15.0,
     }
 
     # Check the fourth constraint: 16 <= w <= 17
+    ommx_constraint_fourth_lower = ommx_instance.get_constraint_by_id(3)
     assert (
-        ommx_instance.get_constraint_by_id(3).equality
-        == Constraint.LESS_THAN_OR_EQUAL_TO_ZERO
+        ommx_constraint_fourth_lower.equality == Constraint.LESS_THAN_OR_EQUAL_TO_ZERO
     )
-    assert ommx_instance.get_constraint_by_id(3).function.terms == {
+    assert ommx_constraint_fourth_lower.function.terms == {
         (3,): -1.0,
         (): 16.0,
     }
+    ommx_constraint_fourth_upper = ommx_instance.get_constraint_by_id(4)
     assert (
-        ommx_instance.get_constraint_by_id(4).equality
-        == Constraint.LESS_THAN_OR_EQUAL_TO_ZERO
+        ommx_constraint_fourth_upper.equality == Constraint.LESS_THAN_OR_EQUAL_TO_ZERO
     )
-    assert ommx_instance.get_constraint_by_id(4).function.terms == {
+    assert ommx_constraint_fourth_upper.function.terms == {
         (3,): 1.0,
         (): -17.0,
     }
