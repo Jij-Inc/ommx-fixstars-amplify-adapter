@@ -168,7 +168,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
     def _set_decision_variables(self):
         self.variable_map = {}
         gen = amplify.VariableGenerator()
-        for var in self.instance.get_decision_variables():
+        for var in self.instance.decision_variables:
             if var.kind == DecisionVariable.BINARY:
                 amplify_var = gen.scalar(
                     "Binary",
@@ -204,7 +204,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             )
 
     def _set_constraints(self):
-        for constr in self.instance.get_constraints():
+        for constr in self.instance.constraints:
             function_poly = self._function_to_poly(constr.function)
             if constr.equality == Constraint.EQUAL_TO_ZERO:
                 self.model += amplify.equal_to(
