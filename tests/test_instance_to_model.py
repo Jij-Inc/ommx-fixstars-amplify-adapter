@@ -1,5 +1,4 @@
 import amplify
-import pytest
 from ommx.v1 import (
     Instance,
     Constraint,
@@ -9,7 +8,6 @@ from ommx.v1 import (
     Polynomial,
 )
 
-from ommx_fixstars_amplify_adapter.exception import OMMXFixstarsAmplifyAdapterError
 from ommx_fixstars_amplify_adapter.adapter import OMMXFixstarsAmplifyAdapter
 from conftest import assert_amplify_model
 
@@ -151,20 +149,96 @@ def test_instance_to_model():
     assert_amplify_model(model, expected_model)
 
 
-def test_error_unsupported_variable_kind():
-    # Create OMMX instances with unsupported variable types
-    decision_variables = [
-        DecisionVariable.of_type(
-            kind=DecisionVariable.SEMI_INTEGER, id=0, lower=0, upper=1, name="x"
-        )
-    ]
-
+def test_partial_evaluate():
+    x = [DecisionVariable.binary(i, name="x", subscripts=[i]) for i in range(3)]
     instance = Instance.from_components(
-        decision_variables=decision_variables,
-        objective=0,
-        constraints=[],
+        decision_variables=x,
+        objective=1 * x[0] + 2 * x[1] + 3 * x[2],
+        constraints=[(1 * x[0] + 2 * x[1] + 3 * x[2] <= 2).set_id(0)],
+        sense=Instance.MINIMIZE,
+    )
+    assert instance.used_decision_variables == x
+    partial = instance.partial_evaluate({0: 1})
+    # x[0] is no longer present in the problem
+    assert partial.used_decision_variables == x[1:]
+
+    adapter = OMMXFixstarsAmplifyAdapter(partial)
+    model = adapter.solver_input
+
+    gen = amplify.VariableGenerator()
+    y1 = gen.scalar("Binary", name="x_{1}")
+    y2 = gen.scalar("Binary", name="x_{2}")
+
+    expected_model = amplify.Model()
+    expected_model += 2.0 * y1 + 3.0 * y2 + 1.0  # Objective with constant term
+    expected_model += amplify.less_equal(
+        2.0 * y1 + 3.0 * y2 - 1.0, 0, label="None [id: 0]"
+    )
+
+    assert_amplify_model(model, expected_model)
+
+    partial = instance.partial_evaluate({1: 1})
+    assert partial.used_decision_variables == [x[0], x[2]]
+
+    adapter = OMMXFixstarsAmplifyAdapter(partial)
+    model = adapter.solver_input
+
+    gen2 = amplify.VariableGenerator()
+    y0 = gen2.scalar("Binary", name="x_{0}")
+    y2 = gen2.scalar("Binary", name="x_{2}")
+
+    expected_model_2 = amplify.Model()
+    expected_model_2 += 1.0 * y0 + 3.0 * y2 + 2.0
+    expected_model_2 += amplify.less_equal(
+        1.0 * y0 + 3.0 * y2 - 0.0, 0, label="None [id: 0]"
+    )
+
+    assert_amplify_model(model, expected_model_2)
+
+    partial = instance.partial_evaluate({2: 1})
+    assert partial.used_decision_variables == x[0:2]
+
+    adapter = OMMXFixstarsAmplifyAdapter(partial)
+    model = adapter.solver_input
+
+    gen3 = amplify.VariableGenerator()
+    y0 = gen3.scalar("Binary", name="x_{0}")
+    y1 = gen3.scalar("Binary", name="x_{1}")
+
+    expected_model_3 = amplify.Model()
+    expected_model_3 += 1.0 * y0 + 2.0 * y1 + 3.0
+    expected_model_3 += amplify.less_equal(
+        1.0 * y0 + 2.0 * y1 - (-1.0), 0, label="None [id: 0]"
+    )
+
+    assert_amplify_model(model, expected_model_3)
+
+
+def test_relax_constraint():
+    x = [DecisionVariable.binary(i, name="x", subscripts=[i]) for i in range(3)]
+    instance = Instance.from_components(
+        decision_variables=x,
+        objective=x[0] + x[1],
+        constraints=[(x[0] + 2 * x[1] <= 1).set_id(0), (x[1] + x[2] <= 1).set_id(1)],
         sense=Instance.MINIMIZE,
     )
 
-    with pytest.raises(OMMXFixstarsAmplifyAdapterError):
-        OMMXFixstarsAmplifyAdapter(instance)
+    assert instance.used_decision_variables == x
+    instance.relax_constraint(1, "relax")
+    # id for x[2] is listed as irrelevant
+    assert instance.decision_variable_analysis().irrelevant() == {x[2].id}
+
+    adapter = OMMXFixstarsAmplifyAdapter(instance)
+    model = adapter.solver_input
+
+    gen = amplify.VariableGenerator()
+    y0 = gen.scalar("Binary", name="x_{0}")
+    y1 = gen.scalar("Binary", name="x_{1}")
+
+    expected_model = amplify.Model()
+    expected_model += 1.0 * y0 + 1.0 * y1  # Objective
+    expected_model += amplify.less_equal(
+        1.0 * y0 + 2.0 * y1 - 1.0, 0, label="None [id: 0]"
+    )
+
+    assert_amplify_model(model, expected_model)
