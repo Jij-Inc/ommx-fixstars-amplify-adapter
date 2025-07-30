@@ -170,7 +170,7 @@ def test_partial_evaluate():
     y2 = gen.scalar("Binary", name="x_{2}")
 
     expected_model = amplify.Model()
-    expected_model += 2.0 * y1 + 3.0 * y2 + 1.0  # Objective with constant term
+    expected_model += 2.0 * y1 + 3.0 * y2 + 1.0
     expected_model += amplify.less_equal(
         2.0 * y1 + 3.0 * y2 - 1.0, 0, label="None [id: 0]"
     )
@@ -236,7 +236,7 @@ def test_relax_constraint():
     y1 = gen.scalar("Binary", name="x_{1}")
 
     expected_model = amplify.Model()
-    expected_model += 1.0 * y0 + 1.0 * y1  # Objective
+    expected_model += 1.0 * y0 + 1.0 * y1
     expected_model += amplify.less_equal(
         1.0 * y0 + 2.0 * y1 - 1.0, 0, label="None [id: 0]"
     )
