@@ -1,4 +1,5 @@
 import amplify
+import pytest
 from ommx.v1 import (
     Instance,
     Constraint,
@@ -8,6 +9,7 @@ from ommx.v1 import (
     Polynomial,
 )
 
+from ommx_fixstars_amplify_adapter.exception import OMMXFixstarsAmplifyAdapterError
 from ommx_fixstars_amplify_adapter.adapter import OMMXFixstarsAmplifyAdapter
 from conftest import assert_amplify_model
 
@@ -147,6 +149,30 @@ def test_instance_to_model():
     expected_model += amplify.less_equal(w - 17, 0, label="constraintE [id: 4]")
 
     assert_amplify_model(model, expected_model)
+
+
+def test_error_unsupported_variable_kind():
+    # Create OMMX instances with unsupported variable types
+    decision_variables = [
+        DecisionVariable.of_type(
+            kind=DecisionVariable.SEMI_INTEGER, id=0, lower=0, upper=10, name="x"
+        )
+    ]
+
+    constraint = Constraint(
+        function=Linear(terms={0: 1.0}, constant=-5.0),
+        equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
+    )
+
+    instance = Instance.from_components(
+        decision_variables=decision_variables,
+        objective=Linear(terms={0: 1.0}),
+        constraints=[constraint],
+        sense=Instance.MINIMIZE,
+    )
+
+    with pytest.raises(OMMXFixstarsAmplifyAdapterError):
+        OMMXFixstarsAmplifyAdapter(instance)
 
 
 def test_partial_evaluate():
