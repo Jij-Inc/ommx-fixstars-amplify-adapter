@@ -35,7 +35,6 @@ sequenceDiagram
 For example, the following problem formulated in OMMX can be solved using Fixstars Amplify.
 
 ```python
-import amplify
 from ommx.v1 import Instance, DecisionVariable
 from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
 
@@ -51,7 +50,7 @@ ommx_instance = Instance.from_components(
 
 token = "***FIXSTARS AMPLIFY TOKEN***"
 solution = OMMXFixstarsAmplifyAdapter.solve(ommx_instance, amplify_token=token)
-print(solution)
+print(solution.decision_variables_df)
 ```
 
 ## Solve problems formulated in Fixstars Amplify SDK with other solvers
@@ -91,7 +90,7 @@ model += amplify.less_equal(20 * x + y, 100)
 
 ommx_instance = model_to_instance(model)
 solution = OMMXPythoMIPAdapter.solve(ommx_instance)
-print(solution)
+print(solution.decision_variables_df)
 ```
 
 > [!NOTE]
@@ -123,13 +122,13 @@ print(solution)
 The packages required for development can be installed as follows:
 
 ```bash
-pip install ".[dev]"
+uv sync --all-extras
 ```
 
 Use the following commands to test, lint and format.
 
 ```bash
-python -m pytest
-python -m ruff check
-python -m ruff format
+uv run pytest
+uv run ruff check
+uv run ruff format
 ```
