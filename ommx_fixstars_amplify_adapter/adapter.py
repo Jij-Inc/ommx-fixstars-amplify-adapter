@@ -29,15 +29,15 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
     def solve(
         cls, ommx_instance: Instance, *, amplify_token: str = "", timeout: int = 1000
     ) -> Solution:
-        """Solve the given ommx.v1.Instance using Fixstars Amplify, returning an
+        """Solve the given ommx.v1.Instance using Fixstars Amplify AE, returning an
         ommx.v1.Solution.
 
         **NOTE** The `amplify_token` parameter _must_ be passed to properly
-          instantiate the Fixstars Client. Using the default value will result
+          instantiate the Fixstars Amplify AE Client. Using the default value will result
           in an error.
 
         :param ommx_instance: The ommx.v1.Instance to solve.
-        :param amplify_token: Token for instantiating the Fixstars Client, obtained from your Fixstars Amplify account.
+        :param amplify_token: Token for instantiating the Fixstars Amplify AE Client, obtained from your Fixstars Amplify account.
         :param timeout: Timeout passed the client
 
         Example:
@@ -47,7 +47,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         .. doctest::
 
             >>> from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
-            >>> from ommx.v1 import Instance, DecisionVariable, Linear
+            >>> from ommx.v1 import Instance, DecisionVariable
             >>>
             >>> x1 = DecisionVariable.integer(1, lower=0, upper=5)
             >>> ommx_instance = Instance.from_components(
@@ -66,9 +66,9 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
 
         adapter = cls(ommx_instance)
 
-        client = amplify.FixstarsClient()
+        client = amplify.AmplifyAEClient()
         client.token = amplify_token
-        client.parameters.timeout = timeout
+        client.parameters.time_limit_ms = timeout
 
         result = amplify.solve(adapter.solver_input, client)
         return adapter.decode(result)
@@ -97,7 +97,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         .. doctest::
 
             >>> from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
-            >>> from ommx.v1 import Instance, DecisionVariable, Linear
+            >>> from ommx.v1 import Instance, DecisionVariable
             >>>
             >>> x1 = DecisionVariable.integer(1, lower=0, upper=5)
             >>> ommx_instance = Instance.from_components(
@@ -110,9 +110,9 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             >>> adapter = OMMXFixstarsAmplifyAdapter(ommx_instance)
             >>> model = adapter.solver_input
             >>> # ... some modification of model's parameters
-            >>> client = amplify.FixstarsClient()
+            >>> client = amplify.AmplifyAEClient()
             >>> client.token = "YOUR API TOKEN" # Set your API token
-            >>> client.parameters.timeout = 1000
+            >>> client.parameters.time_limit_ms = 1000
             >>> result = amplify.solve(model, client)  # doctest: +SKIP
             >>> solution = adapter.decode(result)  # doctest: +SKIP
         """
@@ -134,7 +134,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         .. doctest::
 
             >>> from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
-            >>> from ommx.v1 import Instance, DecisionVariable, Linear
+            >>> from ommx.v1 import Instance, DecisionVariable
             >>>
             >>> x1 = DecisionVariable.integer(1, lower=0, upper=5)
             >>> ommx_instance = Instance.from_components(
@@ -147,9 +147,9 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             >>> adapter = OMMXFixstarsAmplifyAdapter(ommx_instance)
             >>> model = adapter.solver_input
             >>> # ... some modification of model's parameters
-            >>> client = amplify.FixstarsClient()
+            >>> client = amplify.AmplifyAEClient()
             >>> client.token = "YOUR API TOKEN" # Set your API token
-            >>> client.parameters.timeout = 1000
+            >>> client.parameters.time_limit_ms = 1000
             >>> result = amplify.solve(model, client)  # doctest: +SKIP
             >>> state = adapter.decode_to_state(result)  # doctest: +SKIP
         """
