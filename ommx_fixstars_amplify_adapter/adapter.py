@@ -27,7 +27,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
 
     @classmethod
     def solve(
-        cls, ommx_instance: Instance, *, amplify_token: str = "", timeout: int = 1000
+            cls, ommx_instance: Instance, *, amplify_token: str = "", timeout: int = 1000, ae_server_url: str = ""
     ) -> Solution:
         """Solve the given ommx.v1.Instance using Fixstars Amplify AE, returning an
         ommx.v1.Solution.
@@ -59,16 +59,32 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             >>> token = "YOUR API TOKEN" # Set your API token
             >>> solution = OMMXFixstarsAmplifyAdapter.solve(ommx_instance, amplify_token=token) # doctest: +SKIP
         """
-        if amplify_token == "":
-            raise OMMXFixstarsAmplifyAdapterError(
-                "No Fixstars Amplify token specificed -- cannot instantiate client"
-            )
 
+        def configure_client(client):
+            if not amplify_token and not ae_server_url:
+                raise OMMXFixstarsAmplifyAdapterError(
+                        "No Fixstars Amplify token specified -- cannot instantiate client"
+                        )
+            if ae_server_url:
+                client.url = ae_server_url
+            if amplify_token:
+                client.token = amplify_token
+            return client
+        
         adapter = cls(ommx_instance)
 
-        client = amplify.AmplifyAEClient()
-        client.token = amplify_token
-        client.parameters.time_limit_ms = timeout
+        try:
+            client = amplify.AmplifyAEClient()
+            client.parameters.time_limit_ms = timeout
+            configure_client(client)
+
+            # capability check
+            _ = client.version
+
+        except RuntimeError:
+            client = amplify.FixstarsClient()
+            client.parameters.timeout = timeout
+            configure_client(client)
 
         result = amplify.solve(adapter.solver_input, client)
         return adapter.decode(result)
