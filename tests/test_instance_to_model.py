@@ -41,7 +41,7 @@ def test_instance_to_model():
     objective = Polynomial(terms={(0, 1, 2): 2.0, (1, 2): 3.0, (2,): 4.0, (): 5.0})
 
     # Definition of Constraints
-    constraints = []
+    constraints = {}
 
     # constraint1: 6x + 7y + 8z - 9 <= 0
     constraint1_func = Linear(terms={0: 6.0, 1: 7.0, 2: 8.0}, constant=-9.0)
@@ -50,7 +50,7 @@ def test_instance_to_model():
         equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
         name="constraintA",
     )
-    constraints.append(constraint1)
+    constraints[1] = constraint1
 
     # constraint2: 10xy + 11yz + 12xz -13 = 0
     constraint2_func = Quadratic(
@@ -62,7 +62,7 @@ def test_instance_to_model():
     constraint2 = Constraint(
         function=constraint2_func, equality=Constraint.EQUAL_TO_ZERO, name="constraintB"
     )
-    constraints.append(constraint2)
+    constraints[2] = constraint2
 
     # constraint3: 14xyz -15 >= 0
     constraint3_func = Polynomial(terms={(0, 1, 2): 14.0, (): -15.0})
@@ -71,7 +71,7 @@ def test_instance_to_model():
         equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
         name="constraintC",
     )
-    constraints.append(constraint3)
+    constraints[3] = constraint3
 
     # constraint4 :  w >= 16
     constraint4_func = Linear(terms={3: 1.0}, constant=-16.0)
@@ -80,7 +80,7 @@ def test_instance_to_model():
         equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
         name="constraintD",
     )
-    constraints.append(constraint4)
+    constraints[4] = constraint4
 
     # constraint5: w - 17 <= 0  (w <= 17)
     constraint5_func = Linear(terms={3: 1.0}, constant=-17.0)
@@ -89,7 +89,7 @@ def test_instance_to_model():
         equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
         name="constraintE",
     )
-    constraints.append(constraint5)
+    constraints[5] = constraint5
 
     # Creating an OMMX instance
     instance = Instance.from_components(
@@ -142,7 +142,7 @@ def test_error_unsupported_variable_kind():
     instance = Instance.from_components(
         decision_variables=decision_variables,
         objective=Linear(terms={0: 1.0}),
-        constraints=[constraint],
+        constraints={0: constraint},
         sense=Instance.MINIMIZE,
     )
 
@@ -155,7 +155,7 @@ def test_partial_evaluate():
     instance = Instance.from_components(
         decision_variables=x,
         objective=1 * x[0] + 2 * x[1] + 3 * x[2],
-        constraints=[(1 * x[0] + 2 * x[1] + 3 * x[2] <= 2).set_id(0)],
+        constraints={0: 1 * x[0] + 2 * x[1] + 3 * x[2] <= 2},
         sense=Instance.MINIMIZE,
     )
     assert instance.used_decision_variables == x
@@ -220,7 +220,7 @@ def test_relax_constraint():
     instance = Instance.from_components(
         decision_variables=x,
         objective=x[0] + x[1],
-        constraints=[(x[0] + 2 * x[1] <= 1).set_id(0), (x[1] + x[2] <= 1).set_id(1)],
+        constraints={0: x[0] + 2 * x[1] <= 1, 1: x[1] + x[2] <= 1},
         sense=Instance.MINIMIZE,
     )
 
