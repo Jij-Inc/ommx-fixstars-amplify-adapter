@@ -31,33 +31,10 @@ def test_instance_to_model():
     """
     # Definition of Decision Variables (ommx.DecisionVariable)
     decision_variables = [
-        DecisionVariable.of_type(
-            kind=DecisionVariable.BINARY, id=0, lower=0, upper=1, name="x"
-        ),
-        DecisionVariable.of_type(
-            kind=DecisionVariable.INTEGER,
-            id=1,
-            lower=-20.0,
-            upper=20.0,
-            name="y",
-            subscripts=[],
-        ),
-        DecisionVariable.of_type(
-            kind=DecisionVariable.CONTINUOUS,
-            id=2,
-            lower=-30,
-            upper=30,
-            name="z",
-            subscripts=[0],
-        ),
-        DecisionVariable.of_type(
-            kind=DecisionVariable.CONTINUOUS,
-            id=3,
-            lower=float("-inf"),
-            upper=float("inf"),
-            name="w",
-            subscripts=[1, 2],
-        ),
+        DecisionVariable.binary(id=0, name="x"),
+        DecisionVariable.integer(id=1, lower=-20, upper=20, name="y"),
+        DecisionVariable.continuous(id=2, lower=-30, upper=30, name="z", subscripts=[0]),
+        DecisionVariable.continuous(id=3, lower=float("-inf"), upper=float("inf"), name="w", subscripts=[1, 2]),
     ]
 
     # Objective Function Definition: 2xyz + 3yz + 4z + 5
@@ -154,9 +131,7 @@ def test_instance_to_model():
 def test_error_unsupported_variable_kind():
     # Create OMMX instances with unsupported variable types
     decision_variables = [
-        DecisionVariable.of_type(
-            kind=DecisionVariable.SEMI_INTEGER, id=0, lower=0, upper=10, name="x"
-        )
+        DecisionVariable.semi_integer(id=0, lower=0, upper=10, name="x")
     ]
 
     constraint = Constraint(

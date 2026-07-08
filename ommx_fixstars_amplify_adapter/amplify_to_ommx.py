@@ -18,7 +18,7 @@ from .exception import OMMXFixstarsAmplifyAdapterError
 @dataclass
 class OMMXInstanceBuilder:
     """
-    Build ommx.v1.Instance from the Model of Fixstars Amplify.
+    Build ommx.Instance from the Model of Fixstars Amplify.
     """
 
     model: amplify.Model
@@ -29,17 +29,34 @@ class OMMXInstanceBuilder:
         for var in self.model.variables:
             # TODO: How to deal with the case where the variable is an ising variable.
             if var.type == amplify.VariableType.Binary:
-                kind = DecisionVariable.BINARY
-                lower = 0
-                upper = 1
+                decision_variables.append(
+                    DecisionVariable.binary(
+                        id=var.id,
+                        name=var.name,
+                    )
+                )
             elif var.type == amplify.VariableType.Integer:
-                kind = DecisionVariable.INTEGER
                 lower = float("-inf") if var.lower_bound is None else var.lower_bound
                 upper = float("inf") if var.upper_bound is None else var.upper_bound
+                decision_variables.append(
+                    DecisionVariable.integer(
+                        id=var.id,
+                        lower=lower,
+                        upper=upper,
+                        name=var.name,
+                    )
+                )
             elif var.type == amplify.VariableType.Real:
-                kind = DecisionVariable.CONTINUOUS
                 lower = float("-inf") if var.lower_bound is None else var.lower_bound
                 upper = float("inf") if var.upper_bound is None else var.upper_bound
+                decision_variables.append(
+                    DecisionVariable.continuous(
+                        id=var.id,
+                        lower=lower,
+                        upper=upper,
+                        name=var.name,
+                    )
+                )
             elif var.type == amplify.VariableType.Ising:
                 raise OMMXFixstarsAmplifyAdapterError(
                     "Ising variable is not supported now. Please use the Binary variable."
@@ -49,21 +66,11 @@ class OMMXInstanceBuilder:
                     f"Unintended variable type: {var.type}"
                 )
 
-            decision_variables.append(
-                DecisionVariable.of_type(
-                    kind=kind,
-                    id=var.id,
-                    lower=lower,
-                    upper=upper,
-                    name=var.name,
-                )
-            )
-
         return decision_variables
 
     def _poly_to_ommx(self, poly: amplify.Poly, constant: float = 0.0) -> Function:
         """
-        Convert from the polynomial of the Fixstars Amplify SDK to the object of ommx.v1.
+        Convert from the polynomial of the Fixstars Amplify SDK to the object of ommx.
         """
         poly_dict = poly.as_dict()
         if poly.degree() <= 0:
@@ -230,11 +237,11 @@ class OMMXInstanceBuilder:
 
 def model_to_instance(model: amplify.Model) -> Instance:
     """
-    The function to create an ommx.v1.Instance from the Fixstars Amplify model.
+    The function to create an ommx.Instance from the Fixstars Amplify model.
 
     Example:
     =========
-    The following example shows how to create an ommx.v1.Instance from a Fixstars Amplify model.
+    The following example shows how to create an ommx.Instance from a Fixstars Amplify model.
 
     .. doctest::
 
