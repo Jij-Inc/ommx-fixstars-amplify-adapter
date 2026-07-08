@@ -2,7 +2,7 @@ import typing
 from dataclasses import dataclass
 
 import amplify
-from ommx.v1 import (
+from ommx import (
     Constraint,
     DecisionVariable,
     Instance,

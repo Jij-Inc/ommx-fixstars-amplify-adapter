@@ -23,7 +23,7 @@ sequenceDiagram
     participant U as User
     participant A as Adapter
     participant P as Fixstars Amplify
-    U->>A: ommx.v1.Instance
+    U->>A: ommx.Instance
     A->>U: amplify.Model
     U->>P: amplify.Model and parameters for solvers;
     P->>P: Solve with Fixstars Amplify
@@ -35,7 +35,7 @@ sequenceDiagram
 For example, the following problem formulated in OMMX can be solved using Fixstars Amplify.
 
 ```python
-from ommx.v1 import Instance, DecisionVariable
+from ommx import Instance, DecisionVariable
 from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
 
 q_0 = DecisionVariable.binary(id=0, name="q_0")
@@ -63,10 +63,10 @@ sequenceDiagram
     participant A as Adapter
     participant O as Other OMMX toolchain
     U->>A: amplify.Model
-    A->>U: ommx.v1.Instance
-    U->>O: ommx.v1.Instance and parameters for other solver
+    A->>U: ommx.Instance
+    U->>O: ommx.Instance and parameters for other solver
     O->>O: Solve the instance with other solver using other adapter
-    O->>U: ommx.v1.State
+    O->>U: ommx.State
 ```
 
 For example, the following mixed integer programming problem formulated in Fixstars Amplify SDK can be solved using PythonMIP.

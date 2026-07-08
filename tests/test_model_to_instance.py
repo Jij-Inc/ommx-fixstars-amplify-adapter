@@ -1,6 +1,6 @@
 import amplify
 import pytest
-from ommx.v1 import Constraint, DecisionVariable
+from ommx import Constraint, DecisionVariable
 
 from ommx_fixstars_amplify_adapter.amplify_to_ommx import (
     model_to_instance,
@@ -11,7 +11,7 @@ from ommx_fixstars_amplify_adapter.exception import OMMXFixstarsAmplifyAdapterEr
 
 def test_model_to_instance():
     """
-    The function that converts from amplify.Model to ommx.v1.Instance.
+    The function that converts from amplify.Model to ommx.Instance.
 
     Minimize: 2xyz + 3yz + 4z + 5
     Subject to:

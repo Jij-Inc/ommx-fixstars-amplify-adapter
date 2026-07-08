@@ -1,6 +1,6 @@
 import amplify
 
-from ommx.v1 import (
+from ommx import (
     Solution,
     Instance,
     DecisionVariable,
@@ -16,7 +16,7 @@ from .exception import OMMXFixstarsAmplifyAdapterError
 class OMMXFixstarsAmplifyAdapter(SolverAdapter):
     def __init__(self, ommx_instance: Instance):
         """
-        :param ommx_instance: The ommx.v1.Instance to solve.
+        :param ommx_instance: The ommx.Instance to solve.
         """
         self.instance = ommx_instance
         self.model = amplify.Model()
@@ -29,14 +29,14 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
     def solve(
         cls, ommx_instance: Instance, *, amplify_token: str = "", timeout: int = 1000
     ) -> Solution:
-        """Solve the given ommx.v1.Instance using Fixstars Amplify AE, returning an
-        ommx.v1.Solution.
+        """Solve the given ommx.Instance using Fixstars Amplify AE, returning an
+        ommx.Solution.
 
         **NOTE** The `amplify_token` parameter _must_ be passed to properly
           instantiate the Fixstars Amplify AE Client. Using the default value will result
           in an error.
 
-        :param ommx_instance: The ommx.v1.Instance to solve.
+        :param ommx_instance: The ommx.Instance to solve.
         :param amplify_token: Token for instantiating the Fixstars Amplify AE Client, obtained from your Fixstars Amplify account.
         :param timeout: Timeout passed the client
 
@@ -47,7 +47,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         .. doctest::
 
             >>> from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
-            >>> from ommx.v1 import Instance, DecisionVariable
+            >>> from ommx import Instance, DecisionVariable
             >>>
             >>> x1 = DecisionVariable.integer(1, lower=0, upper=5)
             >>> ommx_instance = Instance.from_components(
@@ -79,7 +79,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         return self.model
 
     def decode(self, data: amplify.Result) -> Solution:
-        """Convert optimized Python-MIP model and ommx.v1.Instance to ommx.v1.Solution.
+        """Convert optimized Python-MIP model and ommx.Instance to ommx.Solution.
 
         This method is intended to be used if the model has been acquired with
         `solver_input` for futher adjustment of the solver parameters, and
@@ -97,7 +97,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         .. doctest::
 
             >>> from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
-            >>> from ommx.v1 import Instance, DecisionVariable
+            >>> from ommx import Instance, DecisionVariable
             >>>
             >>> x1 = DecisionVariable.integer(1, lower=0, upper=5)
             >>> ommx_instance = Instance.from_components(
@@ -125,7 +125,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
 
     def decode_to_state(self, data: amplify.Result) -> State:
         """
-        Create an ommx.v1.State from an amplify.Result.
+        Create an ommx.State from an amplify.Result.
 
         Example:
         =========
@@ -134,7 +134,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         .. doctest::
 
             >>> from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
-            >>> from ommx.v1 import Instance, DecisionVariable
+            >>> from ommx import Instance, DecisionVariable
             >>>
             >>> x1 = DecisionVariable.integer(1, lower=0, upper=5)
             >>> ommx_instance = Instance.from_components(
@@ -162,7 +162,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             )
         except RuntimeError as e:
             raise OMMXFixstarsAmplifyAdapterError(
-                f"Failed to create ommx.v1.State: {str(e)}"
+                f"Failed to create ommx.State: {str(e)}"
             )
 
     def _set_decision_variables(self):

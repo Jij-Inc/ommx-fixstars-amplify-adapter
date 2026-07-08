@@ -1,6 +1,6 @@
 import amplify
 import pytest
-from ommx.v1 import (
+from ommx import (
     Instance,
     Constraint,
     DecisionVariable,
@@ -16,7 +16,7 @@ from conftest import assert_amplify_model
 
 def test_instance_to_model():
     """
-    The function that converts from ommx.v1.Instance to amplify.Model.
+    The function that converts from ommx.Instance to amplify.Model.
 
     Minimize: 2xyz + 3yz + 4z + 5
     Subject to:
@@ -29,7 +29,7 @@ def test_instance_to_model():
         z: Continuous (lower bound: -30, upper bound: 30)
         w: Continuous (lower bound: -inf, upper bound: inf)
     """
-    # Definition of Decision Variables (ommx.v1.DecisionVariable)
+    # Definition of Decision Variables (ommx.DecisionVariable)
     decision_variables = [
         DecisionVariable.of_type(
             kind=DecisionVariable.BINARY, id=0, lower=0, upper=1, name="x"
