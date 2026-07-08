@@ -44,13 +44,13 @@ q_1 = DecisionVariable.binary(id=1, name="q_1")
 ommx_instance = Instance.from_components(
     decision_variables=[q_0, q_1],
     objective=q_0 * q_1 + q_0 - q_1 + 1,
-    constraints=[q_0 + q_1 == 1],
+    constraints={0: q_0 + q_1 == 1},
     sense=Instance.MAXIMIZE,
 )
 
 token = "***FIXSTARS AMPLIFY TOKEN***"
 solution = OMMXFixstarsAmplifyAdapter.solve(ommx_instance, amplify_token=token)
-print(solution.decision_variables_df)
+print(solution.decision_variables_df())
 ```
 
 ## Solve problems formulated in Fixstars Amplify SDK with other solvers
@@ -90,7 +90,7 @@ model += amplify.less_equal(20 * x + y, 100)
 
 ommx_instance = model_to_instance(model)
 solution = OMMXPythoMIPAdapter.solve(ommx_instance)
-print(solution.decision_variables_df)
+print(solution.decision_variables_df())
 ```
 
 > [!NOTE]
