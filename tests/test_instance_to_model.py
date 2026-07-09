@@ -5,6 +5,7 @@ from ommx import (
     Constraint,
     DecisionVariable,
     Linear,
+    OneHotConstraint,
     Quadratic,
     Polynomial,
 )
@@ -152,6 +153,64 @@ def test_error_unsupported_variable_kind():
 
     with pytest.raises(OMMXFixstarsAmplifyAdapterError):
         OMMXFixstarsAmplifyAdapter(instance)
+
+
+def test_one_hot_constraint():
+    x = [DecisionVariable.binary(i, name="x", subscripts=[i]) for i in range(3)]
+    
+    instance = Instance.from_components(
+        decision_variables=x,
+        objective=0,
+        constraints={},
+        one_hot_constraints={
+            0: OneHotConstraint(variables=[0, 1, 2], name="one_hot_constraint")
+        },
+        sense=Instance.MINIMIZE,
+    )
+
+    adapter = OMMXFixstarsAmplifyAdapter(instance)
+    model = adapter.solver_input
+
+    # Construct the expected model
+    gen = amplify.VariableGenerator()
+    y0 = gen.scalar("Binary", name="x_{0}")
+    y1 = gen.scalar("Binary", name="x_{1}")
+    y2 = gen.scalar("Binary", name="x_{2}")
+
+    expected_model = amplify.Model()
+    expected_model += amplify.one_hot(y0 + y1 + y2, label="one_hot_constraint [id: 0]")
+
+    assert_amplify_model(model, expected_model)
+
+
+def test_regular_and_one_hot_constraints():
+    x = [DecisionVariable.binary(i, name="x", subscripts=[i]) for i in range(3)]
+    
+    instance = Instance.from_components(
+        decision_variables=x,
+        objective=x[0] + 2 * x[1],
+        constraints={0: 3 * x[0] + 5 * x[2] <= 1},
+        one_hot_constraints={
+            0: OneHotConstraint(variables=[0, 1, 2], name="one_hot_constraint")
+        },
+        sense=Instance.MINIMIZE,
+    )
+
+    adapter = OMMXFixstarsAmplifyAdapter(instance)
+    model = adapter.solver_input
+
+    # Construct the expected model
+    gen = amplify.VariableGenerator()
+    y0 = gen.scalar("Binary", name="x_{0}")
+    y1 = gen.scalar("Binary", name="x_{1}")
+    y2 = gen.scalar("Binary", name="x_{2}")
+
+    expected_model = amplify.Model()
+    expected_model += y0 + 2 * y1
+    expected_model += amplify.one_hot(y0 + y1 + y2, label="one_hot_constraint [id: 0]")
+    expected_model += amplify.less_equal(3 * y0 + 5 * y2 - 1, 0, label="None [id: 0]")
+
+    assert_amplify_model(model, expected_model)
 
 
 def test_partial_evaluate():

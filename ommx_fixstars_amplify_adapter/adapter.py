@@ -8,6 +8,7 @@ from ommx import (
     Function,
     State,
     AttachedConstraint,
+    AttachedOneHotConstraint,
     AdditionalCapability,
 )
 from ommx.adapter import SolverAdapter
@@ -171,7 +172,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             )
 
     def _set_decision_variables(self):
-        self.variable_map = {}
+        self.variable_map: dict[int, amplify.Poly] = {}
         gen = amplify.VariableGenerator()
         for var in self.instance.used_decision_variables:
             if var.kind == DecisionVariable.BINARY:
@@ -209,6 +210,13 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             )
 
     def _set_constraints(self):
+        # Handle one_hot constraints (first-class constraint type)
+        for one_hot_id, one_hot in self.instance.one_hot_constraints.items():
+            one_hot_poly = self._one_hot_to_poly(one_hot)
+            self.model += amplify.one_hot(
+                one_hot_poly, label=_make_constraint_label(one_hot_id, one_hot)
+            )
+
         for constr_id, constr in self.instance.constraints.items():
             function_poly = self._function_to_poly(constr.function)
             if constr.equality == Constraint.EQUAL_TO_ZERO:
@@ -223,6 +231,15 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
                 raise OMMXFixstarsAmplifyAdapterError(
                     f"Unknown equality type: {constr.equality}"
                 )
+
+    def _one_hot_to_poly(
+        self,
+        one_hot: AttachedOneHotConstraint,
+    ) -> amplify.Poly:
+        poly = amplify.Poly(0)
+        for var_id in one_hot.variables:
+            poly += self.variable_map[var_id]
+        return poly
 
     def _function_to_poly(
         self,
@@ -240,7 +257,9 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         return poly
 
 
-def _make_constraint_label(constraint_id: int, constraint: AttachedConstraint) -> str:
+def _make_constraint_label(
+    constraint_id: int, constraint: AttachedConstraint | AttachedOneHotConstraint
+) -> str:
     return f"{constraint.name} [id: {constraint_id}]"
 
 
