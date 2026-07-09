@@ -148,6 +148,64 @@ def test_builder_decision_variable():
     assert decision_variable[2].bound.upper == 30
 
 
+def test_model_to_instance_one_hot_constraint():
+    gen = amplify.VariableGenerator()
+    x = [gen.scalar("Binary", name=f"x_{i}") for i in range(3)]
+    model = amplify.Model()
+    model += amplify.one_hot(x[0] + x[1] + x[2], label="one_hot_constraint")
+
+    ommx_instance = model_to_instance(model)
+
+    assert len(ommx_instance.constraints) == 0
+    assert len(ommx_instance.one_hot_constraints) == 1
+    one_hot_constraint = ommx_instance.one_hot_constraints[0]
+    assert one_hot_constraint.variables == [0, 1, 2]
+    assert one_hot_constraint.name == "one_hot_constraint"
+
+
+def test_model_to_instance_regular_and_one_hot_constraints():
+    gen = amplify.VariableGenerator()
+    x = [gen.scalar("Binary", name=f"x_{i}") for i in range(3)]
+    model = amplify.Model()
+    model += x[0] + 2 * x[1]
+    model += amplify.one_hot(x[0] + x[1] + x[2], label="one_hot_constraint")
+    model += amplify.less_equal(3 * x[0] + 5 * x[2], 1, label="capacity")
+
+    ommx_instance = model_to_instance(model)
+
+    assert len(ommx_instance.one_hot_constraints) == 1
+    one_hot_constraint = ommx_instance.one_hot_constraints[0]
+    assert one_hot_constraint.variables == [0, 1, 2]
+    assert one_hot_constraint.name == "one_hot_constraint"
+
+    assert len(ommx_instance.constraints) == 1
+    constraint = ommx_instance.get_constraint_by_id(0)
+    assert constraint.equality == Constraint.LESS_THAN_OR_EQUAL_TO_ZERO
+    assert constraint.function.terms == {
+        (0,): 3.0,
+        (2,): 5.0,
+        (): -1.0,
+    }
+    assert constraint.name == "capacity"
+
+
+def test_model_to_instance_does_not_detect_non_one_hot_equalities():
+    gen = amplify.VariableGenerator()
+    x = gen.scalar("Binary", name="x")
+    y = gen.scalar("Binary", name="y")
+    z = gen.scalar("Integer", name="z")
+    model = amplify.Model()
+    model += amplify.equal_to(x + 2 * y, 1, label="weighted_binary_sum")
+    model += amplify.equal_to(x + z, 1, label="mixed_variable_sum")
+
+    ommx_instance = model_to_instance(model)
+
+    assert len(ommx_instance.one_hot_constraints) == 0
+    assert len(ommx_instance.constraints) == 2
+    assert ommx_instance.get_constraint_by_id(0).name == "weighted_binary_sum"
+    assert ommx_instance.get_constraint_by_id(1).name == "mixed_variable_sum"
+
+
 def test_error_ising_variable():
     gen = amplify.VariableGenerator()
     x = gen.scalar("Ising")

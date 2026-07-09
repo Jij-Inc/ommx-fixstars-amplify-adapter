@@ -7,6 +7,7 @@ from ommx import (
     DecisionVariable,
     Instance,
     Linear,
+    OneHotConstraint,
     Polynomial,
     Quadratic,
     Function,
@@ -117,9 +118,12 @@ class OMMXInstanceBuilder:
 
     def constraints(self) -> typing.Dict[int, Constraint]:
         constraints = {}
-        counter = -1
+        counter = 0
         for constraint in self.model.constraints:
-            counter += 1
+            # if the constraint is a one-hot constraint, it will be handled separately in the `one_hot_constraints` method.
+            if self._detect_one_hot(constraint) is not None:
+                continue
+
             # Case: `amplify.less_than`
             if constraint.conditional[1] == "LE":
                 assert isinstance(constraint.conditional[2], float)
@@ -131,6 +135,7 @@ class OMMXInstanceBuilder:
                     equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
                     name=constraint.label,
                 )
+                counter += 1
             # Case: `amplify.equal_to`
             elif constraint.conditional[1] == "EQ":
                 assert isinstance(constraint.conditional[2], float)
@@ -142,6 +147,7 @@ class OMMXInstanceBuilder:
                     equality=Constraint.EQUAL_TO_ZERO,
                     name=constraint.label,
                 )
+                counter += 1
             # Case: `amplify.greater_than`
             elif constraint.conditional[1] == "GE":
                 assert isinstance(constraint.conditional[2], float)
@@ -154,6 +160,7 @@ class OMMXInstanceBuilder:
                     equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
                     name=constraint.label,
                 )
+                counter += 1
             # Case: `amplify.clamp`
             elif constraint.conditional[1] == "BW":
                 assert isinstance(constraint.conditional[2], tuple)
@@ -175,12 +182,72 @@ class OMMXInstanceBuilder:
                     equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
                     name=constraint.label + "_upper",
                 )
+                counter += 1
             else:
                 raise OMMXFixstarsAmplifyAdapterError(
                     f"Unintended constraint type: {constraint.conditional[1]}"
                 )
 
         return constraints
+
+    def one_hot_constraints(self) -> typing.Dict[int, OneHotConstraint]:
+        one_hot_constraints = {}
+        counter = 0
+        for constraint in self.model.constraints:
+            variables = self._detect_one_hot(constraint)
+            if variables is None:
+                continue
+
+            one_hot_constraints[counter] = OneHotConstraint(
+                variables=variables,
+                name=constraint.label,
+            )
+            counter += 1
+
+        return one_hot_constraints
+
+    def _detect_one_hot(self, constraint) -> typing.List[int] | None:
+        if constraint.conditional[1] != "EQ":
+            return None
+
+        rhs = constraint.conditional[2]
+        if not isinstance(rhs, float):
+            return None
+
+        poly = constraint.conditional[0]
+        if not isinstance(poly, amplify.Poly):
+            return None
+
+        poly_dict = poly.as_dict()
+        # `poly_dict.get((), 0.0)` is the constant term of the left-hand side.
+        # Moving `lhs == rhs` to OMMX's ordinary `function == 0` form gives
+        # `lhs - rhs == 0`, so one_hot must have constant term -1 there.
+        # Example: `x0 + x1 + x2 == 1` gives `0 - 1 == -1` and is one_hot.
+        # Counterexample: `x0 + x1 + x2 == 0` gives `0 - 0 == 0`.
+        if poly_dict.get((), 0.0) - rhs != -1.0:
+            return None
+
+        variable_types = {var.id: var.type for var in self.model.variables}
+        variables = []
+        # Check that the left-hand side is only a sum of linear binary variables with coefficient 1.
+        for key, coefficient in poly_dict.items():
+            if len(key) == 0:
+                continue
+            if len(key) != 1:
+                return None
+            if coefficient != 1.0:
+                return None
+
+            variable_id = key[0]
+            if variable_types.get(variable_id) != amplify.VariableType.Binary:
+                return None
+
+            variables.append(variable_id)
+
+        if len(variables) == 0:
+            return None
+
+        return sorted(variables)
 
     def sense(self):
         # NOTE:
@@ -216,6 +283,7 @@ class OMMXInstanceBuilder:
                 decision_variables=self.decision_variables(),
                 objective=self.objective(),
                 constraints=self.constraints(),
+                one_hot_constraints=self.one_hot_constraints(),
                 sense=self.sense(),
             )
 
