@@ -8,6 +8,7 @@ from ommx import (
     Function,
     State,
     AttachedConstraint,
+    AdditionalCapability,
 )
 from ommx.adapter import SolverAdapter
 
@@ -15,10 +16,13 @@ from .exception import OMMXFixstarsAmplifyAdapterError
 
 
 class OMMXFixstarsAmplifyAdapter(SolverAdapter):
+    ADDITIONAL_CAPABILITIES = frozenset({AdditionalCapability.OneHot})
+
     def __init__(self, ommx_instance: Instance):
         """
         :param ommx_instance: The ommx.Instance to solve.
         """
+        super().__init__(ommx_instance)
         self.instance = ommx_instance
         self.model = amplify.Model()
 
