@@ -115,80 +115,65 @@ class OMMXInstanceBuilder:
             objective = self.model.objective
         return self._poly_to_ommx(objective)
 
-    def constraints(self) -> typing.List[Constraint]:
-        constraints = []
+    def constraints(self) -> typing.Dict[int, Constraint]:
+        constraints = {}
         counter = -1
         for constraint in self.model.constraints:
             counter += 1
             # Case: `amplify.less_than`
             if constraint.conditional[1] == "LE":
                 assert isinstance(constraint.conditional[2], float)
-                constraints.append(
-                    Constraint(
-                        id=counter,
-                        function=self._poly_to_ommx(
-                            constraint.conditional[0],
-                            constraint.conditional[2],
-                        ),
-                        equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
-                        name=constraint.label,
-                    )
+                constraints[counter] = Constraint(
+                    function=self._poly_to_ommx(
+                        constraint.conditional[0],
+                        constraint.conditional[2],
+                    ),
+                    equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
+                    name=constraint.label,
                 )
             # Case: `amplify.equal_to`
             elif constraint.conditional[1] == "EQ":
                 assert isinstance(constraint.conditional[2], float)
-                constraints.append(
-                    Constraint(
-                        id=counter,
-                        function=self._poly_to_ommx(
-                            constraint.conditional[0],
-                            constraint.conditional[2],
-                        ),
-                        equality=Constraint.EQUAL_TO_ZERO,
-                        name=constraint.label,
-                    )
+                constraints[counter] = Constraint(
+                    function=self._poly_to_ommx(
+                        constraint.conditional[0],
+                        constraint.conditional[2],
+                    ),
+                    equality=Constraint.EQUAL_TO_ZERO,
+                    name=constraint.label,
                 )
             # Case: `amplify.greater_than`
             elif constraint.conditional[1] == "GE":
                 assert isinstance(constraint.conditional[2], float)
                 # Convert to `LESS_THAN_OR_EQUAL_TO_ZERO` constraint.
-                constraints.append(
-                    Constraint(
-                        id=counter,
-                        function=self._poly_to_ommx(
-                            -1 * constraint.conditional[0],
-                            -1 * constraint.conditional[2],
-                        ),
-                        equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
-                        name=constraint.label,
-                    )
+                constraints[counter] = Constraint(
+                    function=self._poly_to_ommx(
+                        -1 * constraint.conditional[0],
+                        -1 * constraint.conditional[2],
+                    ),
+                    equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
+                    name=constraint.label,
                 )
             # Case: `amplify.clamp`
             elif constraint.conditional[1] == "BW":
                 assert isinstance(constraint.conditional[2], tuple)
                 # Split into two `LESS_THAN_OR_EQUAL_TO_ZERO` constraints.
-                constraints.append(
-                    Constraint(
-                        id=counter,
-                        function=self._poly_to_ommx(
-                            -1 * constraint.conditional[0],
-                            -1 * constraint.conditional[2][0],
-                        ),
-                        equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
-                        name=constraint.label + "_lower",
-                    )
+                constraints[counter] = Constraint(
+                    function=self._poly_to_ommx(
+                        -1 * constraint.conditional[0],
+                        -1 * constraint.conditional[2][0],
+                    ),
+                    equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
+                    name=constraint.label + "_lower",
                 )
                 counter += 1
-                constraints.append(
-                    Constraint(
-                        id=counter,
-                        function=self._poly_to_ommx(
-                            constraint.conditional[0],
-                            constraint.conditional[2][1],
-                        ),
-                        equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
-                        name=constraint.label + "_upper",
-                    )
+                constraints[counter] = Constraint(
+                    function=self._poly_to_ommx(
+                        constraint.conditional[0],
+                        constraint.conditional[2][1],
+                    ),
+                    equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
+                    name=constraint.label + "_upper",
                 )
             else:
                 raise OMMXFixstarsAmplifyAdapterError(
@@ -223,7 +208,7 @@ class OMMXInstanceBuilder:
             return Instance.from_components(
                 decision_variables=[],
                 objective=0,
-                constraints=[],
+                constraints={},
                 sense=self.sense(),
             )
         else:

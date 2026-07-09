@@ -33,8 +33,12 @@ def test_instance_to_model():
     decision_variables = [
         DecisionVariable.binary(id=0, name="x"),
         DecisionVariable.integer(id=1, lower=-20, upper=20, name="y"),
-        DecisionVariable.continuous(id=2, lower=-30, upper=30, name="z", subscripts=[0]),
-        DecisionVariable.continuous(id=3, lower=float("-inf"), upper=float("inf"), name="w", subscripts=[1, 2]),
+        DecisionVariable.continuous(
+            id=2, lower=-30, upper=30, name="z", subscripts=[0]
+        ),
+        DecisionVariable.continuous(
+            id=3, lower=float("-inf"), upper=float("inf"), name="w", subscripts=[1, 2]
+        ),
     ]
 
     # Objective Function Definition: 2xyz + 3yz + 4z + 5
@@ -43,53 +47,53 @@ def test_instance_to_model():
     # Definition of Constraints
     constraints = {}
 
-    # constraint1: 6x + 7y + 8z - 9 <= 0
-    constraint1_func = Linear(terms={0: 6.0, 1: 7.0, 2: 8.0}, constant=-9.0)
-    constraint1 = Constraint(
-        function=constraint1_func,
+    # constraint0: 6x + 7y + 8z - 9 <= 0
+    constraint0_func = Linear(terms={0: 6.0, 1: 7.0, 2: 8.0}, constant=-9.0)
+    constraint0 = Constraint(
+        function=constraint0_func,
         equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
         name="constraintA",
     )
-    constraints[1] = constraint1
+    constraints[0] = constraint0
 
-    # constraint2: 10xy + 11yz + 12xz -13 = 0
-    constraint2_func = Quadratic(
+    # constraint1: 10xy + 11yz + 12xz -13 = 0
+    constraint1_func = Quadratic(
         columns=[0, 1, 0],
         rows=[1, 2, 2],
         values=[10.0, 11.0, 12.0],
         linear=Linear(terms={}, constant=-13.0),
     )
-    constraint2 = Constraint(
-        function=constraint2_func, equality=Constraint.EQUAL_TO_ZERO, name="constraintB"
+    constraint1 = Constraint(
+        function=constraint1_func, equality=Constraint.EQUAL_TO_ZERO, name="constraintB"
     )
-    constraints[2] = constraint2
+    constraints[1] = constraint1
 
-    # constraint3: 14xyz -15 >= 0
-    constraint3_func = Polynomial(terms={(0, 1, 2): 14.0, (): -15.0})
-    constraint3 = Constraint(
-        function=constraint3_func * -1,
+    # constraint2: 14xyz -15 >= 0
+    constraint2_func = Polynomial(terms={(0, 1, 2): 14.0, (): -15.0})
+    constraint2 = Constraint(
+        function=constraint2_func * -1,
         equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
         name="constraintC",
     )
-    constraints[3] = constraint3
+    constraints[2] = constraint2
 
-    # constraint4 :  w >= 16
-    constraint4_func = Linear(terms={3: 1.0}, constant=-16.0)
-    constraint4 = Constraint(
-        function=constraint4_func * -1,
+    # constraint3 :  w >= 16
+    constraint3_func = Linear(terms={3: 1.0}, constant=-16.0)
+    constraint3 = Constraint(
+        function=constraint3_func * -1,
         equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
         name="constraintD",
     )
-    constraints[4] = constraint4
+    constraints[3] = constraint3
 
-    # constraint5: w - 17 <= 0  (w <= 17)
-    constraint5_func = Linear(terms={3: 1.0}, constant=-17.0)
-    constraint5 = Constraint(
-        function=constraint5_func,
+    # constraint4: w - 17 <= 0  (w <= 17)
+    constraint4_func = Linear(terms={3: 1.0}, constant=-17.0)
+    constraint4 = Constraint(
+        function=constraint4_func,
         equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
         name="constraintE",
     )
-    constraints[5] = constraint5
+    constraints[4] = constraint4
 
     # Creating an OMMX instance
     instance = Instance.from_components(

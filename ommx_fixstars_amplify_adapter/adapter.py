@@ -7,6 +7,7 @@ from ommx import (
     Constraint,
     Function,
     State,
+    AttachedConstraint,
 )
 from ommx.adapter import SolverAdapter
 
@@ -53,7 +54,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             >>> ommx_instance = Instance.from_components(
             ...     decision_variables=[x1],
             ...     objective=x1,
-            ...     constraints=[],
+            ...     constraints={},
             ...     sense=Instance.MINIMIZE,
             ... )
             >>> token = "YOUR API TOKEN" # Set your API token
@@ -103,7 +104,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             >>> ommx_instance = Instance.from_components(
             ...     decision_variables=[x1],
             ...     objective=x1,
-            ...     constraints=[],
+            ...     constraints={},
             ...     sense=Instance.MINIMIZE,
             ... )
             >>>
@@ -140,7 +141,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             >>> ommx_instance = Instance.from_components(
             ...     decision_variables=[x1],
             ...     objective=x1,
-            ...     constraints=[],
+            ...     constraints={},
             ...     sense=Instance.MINIMIZE,
             ... )
             >>>
@@ -204,15 +205,15 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             )
 
     def _set_constraints(self):
-        for constr in self.instance.constraints:
+        for constr_id, constr in self.instance.constraints.items():
             function_poly = self._function_to_poly(constr.function)
             if constr.equality == Constraint.EQUAL_TO_ZERO:
                 self.model += amplify.equal_to(
-                    function_poly, 0, label=_make_constraint_label(constr)
+                    function_poly, 0, label=_make_constraint_label(constr_id, constr)
                 )
             elif constr.equality == Constraint.LESS_THAN_OR_EQUAL_TO_ZERO:
                 self.model += amplify.less_equal(
-                    function_poly, 0, label=_make_constraint_label(constr)
+                    function_poly, 0, label=_make_constraint_label(constr_id, constr)
                 )
             else:
                 raise OMMXFixstarsAmplifyAdapterError(
@@ -235,8 +236,8 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         return poly
 
 
-def _make_constraint_label(constraint: Constraint) -> str:
-    return f"{constraint.name} [id: {constraint.id}]"
+def _make_constraint_label(constraint_id: int, constraint: AttachedConstraint) -> str:
+    return f"{constraint.name} [id: {constraint_id}]"
 
 
 def _make_variable_label(variable: DecisionVariable) -> str:
