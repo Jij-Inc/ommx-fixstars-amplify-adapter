@@ -157,7 +157,7 @@ def test_error_unsupported_variable_kind():
 
 def test_one_hot_constraint():
     x = [DecisionVariable.binary(i, name="x", subscripts=[i]) for i in range(3)]
-    
+
     instance = Instance.from_components(
         decision_variables=x,
         objective=0,
@@ -185,7 +185,7 @@ def test_one_hot_constraint():
 
 def test_regular_and_one_hot_constraints():
     x = [DecisionVariable.binary(i, name="x", subscripts=[i]) for i in range(3)]
-    
+
     instance = Instance.from_components(
         decision_variables=x,
         objective=x[0] + 2 * x[1],

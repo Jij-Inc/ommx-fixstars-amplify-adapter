@@ -11,7 +11,7 @@ from ommx import (
     AttachedOneHotConstraint,
     AdditionalCapability,
 )
-from ommx.adapter import SolverAdapter
+from ommx.adapter import DiagnosticsSink, SolverAdapter
 
 from .exception import OMMXFixstarsAmplifyAdapterError
 
@@ -33,7 +33,12 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
 
     @classmethod
     def solve(
-        cls, ommx_instance: Instance, *, amplify_token: str = "", timeout: int = 1000
+        cls,
+        ommx_instance: Instance,
+        *,
+        amplify_token: str = "",
+        timeout: int = 1000,
+        diagnostics: DiagnosticsSink | None = None,
     ) -> Solution:
         """Solve the given ommx.Instance using Fixstars Amplify AE, returning an
         ommx.Solution.
