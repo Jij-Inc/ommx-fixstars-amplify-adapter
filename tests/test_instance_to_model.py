@@ -213,6 +213,42 @@ def test_regular_and_one_hot_constraints():
     assert_amplify_model(model, expected_model)
 
 
+def test_multiple_one_hot_constraints():
+    # 2x2 assignment: each variable belongs to one row and one column one-hot
+    x = [
+        DecisionVariable.binary(i, name="x", subscripts=[i // 2, i % 2])
+        for i in range(4)
+    ]
+    instance = Instance.from_components(
+        decision_variables=x,
+        objective=x[0] + 2 * x[3],
+        constraints={},
+        one_hot_constraints={
+            0: OneHotConstraint(variables=[0, 1], name="row"),
+            1: OneHotConstraint(variables=[2, 3], name="row"),
+            2: OneHotConstraint(variables=[0, 2], name="col"),
+            3: OneHotConstraint(variables=[1, 3], name="col"),
+        },
+        sense=Instance.MINIMIZE,
+    )
+
+    adapter = OMMXFixstarsAmplifyAdapter(instance)
+    model = adapter.solver_input
+
+    # Construct the expected model
+    gen = amplify.VariableGenerator()
+    y = [gen.scalar("Binary", name=f"x_{{{i // 2}, {i % 2}}}") for i in range(4)]
+
+    expected_model = amplify.Model()
+    expected_model += y[0] + 2 * y[3]
+    expected_model += amplify.one_hot(y[0] + y[1], label="row [id: 0]")
+    expected_model += amplify.one_hot(y[2] + y[3], label="row [id: 1]")
+    expected_model += amplify.one_hot(y[0] + y[2], label="col [id: 2]")
+    expected_model += amplify.one_hot(y[1] + y[3], label="col [id: 3]")
+
+    assert_amplify_model(model, expected_model)
+
+
 def test_partial_evaluate():
     x = [DecisionVariable.binary(i, name="x", subscripts=[i]) for i in range(3)]
     instance = Instance.from_components(
