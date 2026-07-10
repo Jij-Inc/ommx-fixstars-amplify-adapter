@@ -89,7 +89,7 @@ model += amplify.less_equal(x, 1)
 model += amplify.less_equal(20 * x + y, 100)
 
 ommx_instance = model_to_instance(model)
-solution = OMMXPythoMIPAdapter.solve(ommx_instance)
+solution = OMMXPythonMIPAdapter.solve(ommx_instance)
 print(solution.decision_variables_df())
 ```
 
