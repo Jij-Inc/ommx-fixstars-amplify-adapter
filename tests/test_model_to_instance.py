@@ -148,7 +148,7 @@ def test_builder_decision_variable():
     assert decision_variable[2].bound.upper == 30
 
 
-def test_model_to_instance_one_hot_constraint():
+def test_model_to_instance_one_hot_as_regular_constraint():
     gen = amplify.VariableGenerator()
     x = [gen.scalar("Binary", name=f"x_{i}") for i in range(3)]
     model = amplify.Model()
@@ -156,11 +156,17 @@ def test_model_to_instance_one_hot_constraint():
 
     ommx_instance = model_to_instance(model)
 
-    assert len(ommx_instance.constraints) == 0
-    assert len(ommx_instance.one_hot_constraints) == 1
-    one_hot_constraint = ommx_instance.one_hot_constraints[0]
-    assert one_hot_constraint.variables == [0, 1, 2]
-    assert one_hot_constraint.name == "one_hot_constraint"
+    assert len(ommx_instance.one_hot_constraints) == 0
+    assert len(ommx_instance.constraints) == 1
+    constraint = ommx_instance.get_constraint_by_id(0)
+    assert constraint.equality == Constraint.EQUAL_TO_ZERO
+    assert constraint.function.terms == {
+        (0,): 1.0,
+        (1,): 1.0,
+        (2,): 1.0,
+        (): -1.0,
+    }
+    assert constraint.name == "one_hot_constraint"
 
 
 def test_model_to_instance_regular_and_one_hot_constraints():
@@ -173,13 +179,20 @@ def test_model_to_instance_regular_and_one_hot_constraints():
 
     ommx_instance = model_to_instance(model)
 
-    assert len(ommx_instance.one_hot_constraints) == 1
-    one_hot_constraint = ommx_instance.one_hot_constraints[0]
-    assert one_hot_constraint.variables == [0, 1, 2]
-    assert one_hot_constraint.name == "one_hot_constraint"
+    assert len(ommx_instance.one_hot_constraints) == 0
 
-    assert len(ommx_instance.constraints) == 1
+    assert len(ommx_instance.constraints) == 2
     constraint = ommx_instance.get_constraint_by_id(0)
+    assert constraint.equality == Constraint.EQUAL_TO_ZERO
+    assert constraint.function.terms == {
+        (0,): 1.0,
+        (1,): 1.0,
+        (2,): 1.0,
+        (): -1.0,
+    }
+    assert constraint.name == "one_hot_constraint"
+
+    constraint = ommx_instance.get_constraint_by_id(1)
     assert constraint.equality == Constraint.LESS_THAN_OR_EQUAL_TO_ZERO
     assert constraint.function.terms == {
         (0,): 3.0,

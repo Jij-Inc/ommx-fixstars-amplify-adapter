@@ -7,7 +7,6 @@ from ommx import (
     DecisionVariable,
     Instance,
     Linear,
-    OneHotConstraint,
     Polynomial,
     Quadratic,
     Function,
@@ -117,140 +116,74 @@ class OMMXInstanceBuilder:
         return self._poly_to_ommx(objective)
 
     def constraints(self) -> typing.Dict[int, Constraint]:
-        constraints, _ = self._classify_constraints()
-        return constraints
-
-    def one_hot_constraints(self) -> typing.Dict[int, OneHotConstraint]:
-        _, one_hot_constraints = self._classify_constraints()
-        return one_hot_constraints
-
-    def _classify_constraints(
-        self,
-    ) -> typing.Tuple[typing.Dict[int, Constraint], typing.Dict[int, OneHotConstraint]]:
-        constraints = []
-        one_hot_constraints = []
-
+        constraints = {}
+        counter = 0
         for constraint in self.model.constraints:
             # Case: `amplify.less_than`
             if constraint.conditional[1] == "LE":
                 assert isinstance(constraint.conditional[2], float)
-                constraints.append(
-                    Constraint(
-                        function=self._poly_to_ommx(
-                            constraint.conditional[0],
-                            constraint.conditional[2],
-                        ),
-                        equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
-                        name=constraint.label,
-                    )
+                constraints[counter] = Constraint(
+                    function=self._poly_to_ommx(
+                        constraint.conditional[0],
+                        constraint.conditional[2],
+                    ),
+                    equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
+                    name=constraint.label,
                 )
+                counter += 1
             # Case: `amplify.equal_to`
             elif constraint.conditional[1] == "EQ":
                 assert isinstance(constraint.conditional[2], float)
-                poly = constraint.conditional[0]
-                variables = self._detect_one_hot(
-                    poly=poly,
-                    rhs=constraint.conditional[2],
+                constraints[counter] = Constraint(
+                    function=self._poly_to_ommx(
+                        constraint.conditional[0],
+                        constraint.conditional[2],
+                    ),
+                    equality=Constraint.EQUAL_TO_ZERO,
+                    name=constraint.label,
                 )
-                if variables is not None:
-                    one_hot_constraints.append(
-                        OneHotConstraint(
-                            variables=variables,
-                            name=constraint.label,
-                        )
-                    )
-                else:
-                    constraints.append(
-                        Constraint(
-                            function=self._poly_to_ommx(
-                                poly,
-                                constraint.conditional[2],
-                            ),
-                            equality=Constraint.EQUAL_TO_ZERO,
-                            name=constraint.label,
-                        )
-                    )
+                counter += 1
             # Case: `amplify.greater_than`
             elif constraint.conditional[1] == "GE":
                 assert isinstance(constraint.conditional[2], float)
                 # Convert to `LESS_THAN_OR_EQUAL_TO_ZERO` constraint.
-                constraints.append(
-                    Constraint(
-                        function=self._poly_to_ommx(
-                            -1 * constraint.conditional[0],
-                            -1 * constraint.conditional[2],
-                        ),
-                        equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
-                        name=constraint.label,
-                    )
+                constraints[counter] = Constraint(
+                    function=self._poly_to_ommx(
+                        -1 * constraint.conditional[0],
+                        -1 * constraint.conditional[2],
+                    ),
+                    equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
+                    name=constraint.label,
                 )
+                counter += 1
             # Case: `amplify.clamp`
             elif constraint.conditional[1] == "BW":
                 assert isinstance(constraint.conditional[2], tuple)
                 # Split into two `LESS_THAN_OR_EQUAL_TO_ZERO` constraints.
-                constraints.append(
-                    Constraint(
-                        function=self._poly_to_ommx(
-                            -1 * constraint.conditional[0],
-                            -1 * constraint.conditional[2][0],
-                        ),
-                        equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
-                        name=constraint.label + "_lower",
-                    )
+                constraints[counter] = Constraint(
+                    function=self._poly_to_ommx(
+                        -1 * constraint.conditional[0],
+                        -1 * constraint.conditional[2][0],
+                    ),
+                    equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
+                    name=constraint.label + "_lower",
                 )
-                constraints.append(
-                    Constraint(
-                        function=self._poly_to_ommx(
-                            constraint.conditional[0],
-                            constraint.conditional[2][1],
-                        ),
-                        equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
-                        name=constraint.label + "_upper",
-                    )
+                counter += 1
+                constraints[counter] = Constraint(
+                    function=self._poly_to_ommx(
+                        constraint.conditional[0],
+                        constraint.conditional[2][1],
+                    ),
+                    equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
+                    name=constraint.label + "_upper",
                 )
+                counter += 1
             else:
                 raise OMMXFixstarsAmplifyAdapterError(
                     f"Unintended constraint type: {constraint.conditional[1]}"
                 )
 
-        return dict(enumerate(constraints)), dict(enumerate(one_hot_constraints))
-
-    def _detect_one_hot(
-        self,
-        *,
-        poly: amplify.Poly,
-        rhs: float,
-    ) -> typing.List[int] | None:
-        poly_dict = poly.as_dict()
-        # `poly_dict.get((), 0.0)` is the constant term of the left-hand side.
-        # Moving `lhs == rhs` to OMMX's ordinary `function == 0` form gives
-        # `lhs - rhs == 0`, so one_hot must have constant term -1 there.
-        # Example: `x0 + x1 + x2 == 1` gives `0 - 1 == -1` and is one_hot.
-        # Counterexample: `x0 + x1 + x2 == 0` gives `0 - 0 == 0`.
-        if poly_dict.get((), 0.0) - rhs != -1.0:
-            return None
-
-        variable_types = {var.id: var.type for var in poly.variables}
-        variables = []
-        # Check that the left-hand side is only a sum of linear binary variables with coefficient 1.
-        for key, coefficient in poly_dict.items():
-            if len(key) == 0:
-                continue
-            if len(key) != 1:
-                return None
-            if coefficient != 1.0:
-                return None
-
-            variable_id = key[0]
-            if variable_types.get(variable_id) != amplify.VariableType.Binary:
-                return None
-
-            variables.append(variable_id)
-
-        if len(variables) == 0:
-            return None
-
-        return sorted(variables)
+        return constraints
 
     def sense(self):
         # NOTE:
@@ -282,12 +215,10 @@ class OMMXInstanceBuilder:
                 sense=self.sense(),
             )
         else:
-            constraints, one_hot_constraints = self._classify_constraints()
             return Instance.from_components(
                 decision_variables=self.decision_variables(),
                 objective=self.objective(),
-                constraints=constraints,
-                one_hot_constraints=one_hot_constraints,
+                constraints=self.constraints(),
                 sense=self.sense(),
             )
 
