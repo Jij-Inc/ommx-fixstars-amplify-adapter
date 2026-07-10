@@ -244,10 +244,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         self,
         one_hot: AttachedOneHotConstraint,
     ) -> amplify.Poly:
-        poly = amplify.Poly(0)
-        for var_id in one_hot.variables:
-            poly += self.variable_map[var_id]
-        return poly
+        return amplify.sum(self.variable_map[var_id] for var_id in one_hot.variables)
 
     def _function_to_poly(
         self,
