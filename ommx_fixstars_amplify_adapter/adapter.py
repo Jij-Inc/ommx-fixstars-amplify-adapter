@@ -7,7 +7,6 @@ from ommx import (
     Constraint,
     Function,
     State,
-    AttachedConstraint,
     AttachedOneHotConstraint,
     AdditionalCapability,
 )
@@ -219,18 +218,18 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         for one_hot_id, one_hot in self.instance.one_hot_constraints.items():
             one_hot_poly = self._one_hot_to_poly(one_hot)
             self.model += amplify.one_hot(
-                one_hot_poly, label=_make_constraint_label(one_hot_id, one_hot)
+                one_hot_poly, label=f"{one_hot.name} [id: {one_hot_id}]"
             )
 
         for constr_id, constr in self.instance.constraints.items():
             function_poly = self._function_to_poly(constr.function)
             if constr.equality == Constraint.EQUAL_TO_ZERO:
                 self.model += amplify.equal_to(
-                    function_poly, 0, label=_make_constraint_label(constr_id, constr)
+                    function_poly, 0, label=f"{constr.name} [id: {constr_id}]"
                 )
             elif constr.equality == Constraint.LESS_THAN_OR_EQUAL_TO_ZERO:
                 self.model += amplify.less_equal(
-                    function_poly, 0, label=_make_constraint_label(constr_id, constr)
+                    function_poly, 0, label=f"{constr.name} [id: {constr_id}]"
                 )
             else:
                 raise OMMXFixstarsAmplifyAdapterError(
@@ -257,12 +256,6 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
                     term *= self.variable_map[id]
                 poly += term
         return poly
-
-
-def _make_constraint_label(
-    constraint_id: int, constraint: AttachedConstraint | AttachedOneHotConstraint
-) -> str:
-    return f"{constraint.name} [id: {constraint_id}]"
 
 
 def _make_variable_label(variable: DecisionVariable) -> str:
