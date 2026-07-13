@@ -117,8 +117,9 @@ class OMMXInstanceBuilder:
 
     def constraints(self) -> typing.Dict[int, Constraint]:
         constraints = {}
-        counter = 0
+        counter = -1
         for constraint in self.model.constraints:
+            counter += 1
             # Case: `amplify.less_than`
             if constraint.conditional[1] == "LE":
                 assert isinstance(constraint.conditional[2], float)
@@ -130,7 +131,6 @@ class OMMXInstanceBuilder:
                     equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
                     name=constraint.label,
                 )
-                counter += 1
             # Case: `amplify.equal_to`
             elif constraint.conditional[1] == "EQ":
                 assert isinstance(constraint.conditional[2], float)
@@ -142,7 +142,6 @@ class OMMXInstanceBuilder:
                     equality=Constraint.EQUAL_TO_ZERO,
                     name=constraint.label,
                 )
-                counter += 1
             # Case: `amplify.greater_than`
             elif constraint.conditional[1] == "GE":
                 assert isinstance(constraint.conditional[2], float)
@@ -155,7 +154,6 @@ class OMMXInstanceBuilder:
                     equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
                     name=constraint.label,
                 )
-                counter += 1
             # Case: `amplify.clamp`
             elif constraint.conditional[1] == "BW":
                 assert isinstance(constraint.conditional[2], tuple)
@@ -177,7 +175,6 @@ class OMMXInstanceBuilder:
                     equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
                     name=constraint.label + "_upper",
                 )
-                counter += 1
             else:
                 raise OMMXFixstarsAmplifyAdapterError(
                     f"Unintended constraint type: {constraint.conditional[1]}"
