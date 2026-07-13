@@ -131,8 +131,7 @@ class OMMXInstanceBuilder:
         one_hot_constraints = []
 
         for constraint in self.model.constraints:
-            # Case: `amplify.less_than`
-            if constraint.conditional[1] == "LE":
+            # Case: `amplify.less_equal`
                 assert isinstance(constraint.conditional[2], float)
                 constraints.append(
                     Constraint(
