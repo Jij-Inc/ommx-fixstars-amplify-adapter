@@ -132,6 +132,7 @@ class OMMXInstanceBuilder:
 
         for constraint in self.model.constraints:
             # Case: `amplify.less_equal`
+            if constraint.conditional[1] == "LE":
                 assert isinstance(constraint.conditional[2], float)
                 constraints.append(
                     Constraint(
@@ -170,6 +171,7 @@ class OMMXInstanceBuilder:
                         )
                     )
             # Case: `amplify.greater_equal`
+            elif constraint.conditional[1] == "GE":
                 assert isinstance(constraint.conditional[2], float)
                 # Convert to `LESS_THAN_OR_EQUAL_TO_ZERO` constraint.
                 constraints.append(
