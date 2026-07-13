@@ -7,7 +7,6 @@ from ommx import (
     Constraint,
     Function,
     State,
-    AttachedOneHotConstraint,
     AdditionalCapability,
 )
 from ommx.adapter import DiagnosticsSink, SolverAdapter
@@ -216,7 +215,10 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
     def _set_constraints(self):
         # Handle one_hot constraints (first-class constraint type)
         for one_hot_id, one_hot in self.instance.one_hot_constraints.items():
-            one_hot_poly = self._one_hot_to_poly(one_hot)
+            # convert one_hot constraint to polynomial
+            one_hot_poly = amplify.sum(
+                self.variable_map[var_id] for var_id in one_hot.variables
+            )
             self.model += amplify.one_hot(
                 one_hot_poly, label=f"{one_hot.name} [id: {one_hot_id}]"
             )
@@ -235,12 +237,6 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
                 raise OMMXFixstarsAmplifyAdapterError(
                     f"Unknown equality type: {constr.equality}"
                 )
-
-    def _one_hot_to_poly(
-        self,
-        one_hot: AttachedOneHotConstraint,
-    ) -> amplify.Poly:
-        return amplify.sum(self.variable_map[var_id] for var_id in one_hot.variables)
 
     def _function_to_poly(
         self,
