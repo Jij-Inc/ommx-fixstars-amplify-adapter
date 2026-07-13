@@ -90,10 +90,10 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         return self.model
 
     def decode(self, data: amplify.Result) -> Solution:
-        """Convert optimized Python-MIP model and ommx.Instance to ommx.Solution.
+        """Convert Amplify result and ommx.Instance to ommx.Solution.
 
         This method is intended to be used if the model has been acquired with
-        `solver_input` for futher adjustment of the solver parameters, and
+        `solver_input` for further adjustment of the solver parameters, and
         separately optimizing the model.
 
         Note that alterations to the model may make the decoding process
