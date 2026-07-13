@@ -1,4 +1,10 @@
 import amplify
+from ommx import DecisionVariable, Instance, OneHotConstraint
+
+from ommx_fixstars_amplify_adapter import (
+    OMMXFixstarsAmplifyAdapter,
+    model_to_instance,
+)
 
 
 def test_model():
@@ -102,3 +108,50 @@ def test_poly_degree():
     assert (x[0] * x[1] + x[2]).degree() == 2
     assert (x[0] * x[1] + x[2] * x[3]).degree() == 2
     assert (x[0] * x[1] * x[2] + x[3]).degree() == 3
+
+
+def test_instance_to_model_to_instance_round_trip():
+    """Test that an OMMX instance can be structurally restored after conversion
+    to an Amplify model and back.
+
+    Constraint names gain an ``[id: ...]`` suffix during conversion to Amplify,
+    so the round trip preserves the mathematical structure rather than identical
+    metadata.
+    """
+    x = [DecisionVariable.binary(i, name=f"x_{i}") for i in range(3)]
+    instance = Instance.from_components(
+        decision_variables=x,
+        objective=x[0] + 2 * x[1] + 3 * x[2],
+        constraints={0: (x[0] + 2 * x[2] <= 2).set_name("regular_constraint")},
+        one_hot_constraints={
+            0: OneHotConstraint(variables=[0, 1, 2], name="one_hot_constraint")
+        },
+        sense=Instance.MINIMIZE,
+    )
+
+    model = OMMXFixstarsAmplifyAdapter(instance).solver_input
+    restored = model_to_instance(model)
+
+    assert restored.sense == instance.sense
+    assert restored.objective.terms == instance.objective.terms
+
+    assert len(restored.decision_variables) == 3
+    for actual, expected in zip(
+        restored.decision_variables, instance.decision_variables, strict=True
+    ):
+        assert actual.id == expected.id
+        assert actual.kind == expected.kind
+        assert actual.bound == expected.bound
+        assert actual.name == expected.name
+
+    assert len(restored.constraints) == 1
+    restored_constraint = restored.constraints[0]
+    original_constraint = instance.constraints[0]
+    assert restored_constraint.equality == original_constraint.equality
+    assert restored_constraint.function.terms == original_constraint.function.terms
+    assert restored_constraint.name == "regular_constraint [id: 0]"
+
+    assert len(restored.one_hot_constraints) == 1
+    restored_one_hot = restored.one_hot_constraints[0]
+    assert restored_one_hot.variables == [0, 1, 2]
+    assert restored_one_hot.name == "one_hot_constraint [id: 0]"
