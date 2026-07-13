@@ -11,7 +11,7 @@ from ommx import (
     AttachedOneHotConstraint,
     AdditionalCapability,
 )
-from ommx.adapter import DiagnosticsSink, NoSolutionReturned, SolverAdapter
+from ommx.adapter import DiagnosticsSink, SolverAdapter
 
 from .exception import OMMXFixstarsAmplifyAdapterError
 
@@ -164,9 +164,6 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             >>> result = amplify.solve(model, client)  # doctest: +SKIP
             >>> state = adapter.decode_to_state(result)  # doctest: +SKIP
         """
-        if len(data.solutions) == 0:
-            raise NoSolutionReturned("No solution was returned by Fixstars Amplify")
-
         try:
             return State(
                 entries={
