@@ -169,8 +169,7 @@ class OMMXInstanceBuilder:
                             name=constraint.label,
                         )
                     )
-            # Case: `amplify.greater_than`
-            elif constraint.conditional[1] == "GE":
+            # Case: `amplify.greater_equal`
                 assert isinstance(constraint.conditional[2], float)
                 # Convert to `LESS_THAN_OR_EQUAL_TO_ZERO` constraint.
                 constraints.append(
