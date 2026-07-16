@@ -1,12 +1,13 @@
 import math
 import random
 
-from ommx import (
+from ommx.v1 import (
     Constraint,
+    ConstraintHints,
     DecisionVariable,
     Instance,
     Linear,
-    OneHotConstraint,
+    OneHot,
     Quadratic,
 )
 
@@ -23,35 +24,32 @@ def _require_regular(formulation: str) -> None:
 
 def _build_one_hot_constraints(
     specs: list[tuple[str, list[int], list[int]]], formulation: str
-) -> tuple[dict[int, Constraint], dict[int, OneHotConstraint]]:
+) -> tuple[list[Constraint], ConstraintHints | None]:
     if formulation not in ("regular", "one-hot"):
         raise ValueError(f"Unknown formulation: {formulation}")
 
-    if formulation == "regular":
-        return (
-            {
-                constraint_id: Constraint(
-                    function=Linear(
-                        terms={variable_id: 1 for variable_id in variable_ids},
-                        constant=-1,
-                    ),
-                    equality=Constraint.EQUAL_TO_ZERO,
-                    name=name,
-                    subscripts=subscripts,
-                )
-                for constraint_id, (name, subscripts, variable_ids) in enumerate(specs)
-            },
-            {},
-        )
-
-    return {}, {
-        constraint_id: OneHotConstraint(
-            variables=variable_ids,
+    constraints = [
+        Constraint(
+            id=constraint_id,
+            function=Linear(
+                terms={variable_id: 1 for variable_id in variable_ids},
+                constant=-1,
+            ),
+            equality=Constraint.EQUAL_TO_ZERO,
             name=name,
             subscripts=subscripts,
         )
         for constraint_id, (name, subscripts, variable_ids) in enumerate(specs)
-    }
+    ]
+    if formulation == "regular":
+        return constraints, None
+
+    return constraints, ConstraintHints(
+        one_hot_constraints=[
+            OneHot(id=constraint_id, variables=variable_ids)
+            for constraint_id, (_, _, variable_ids) in enumerate(specs)
+        ]
+    )
 
 
 def build_knapsack_instance(
@@ -70,8 +68,9 @@ def build_knapsack_instance(
     return Instance.from_components(
         decision_variables=variables,
         objective=Linear(terms=dict(enumerate(values))),
-        constraints={
-            0: Constraint(
+        constraints=[
+            Constraint(
+                id=0,
                 function=Linear(
                     terms=dict(enumerate(weights)),
                     constant=-(sum(weights) // 2),
@@ -79,7 +78,7 @@ def build_knapsack_instance(
                 equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
                 name="capacity",
             )
-        },
+        ],
         sense=Instance.MAXIMIZE,
     )
 
@@ -99,8 +98,9 @@ def build_production_instance(
         DecisionVariable.integer(i, lower=0, upper=10, name="x", subscripts=[i])
         for i in range(size)
     ]
-    constraints = {
-        resource_id: Constraint(
+    constraints = [
+        Constraint(
+            id=resource_id,
             function=Linear(
                 terms=dict(enumerate(coefficients)),
                 constant=-(sum(coefficients) * 5),
@@ -110,7 +110,7 @@ def build_production_instance(
             subscripts=[resource_id],
         )
         for resource_id, coefficients in enumerate(resources)
-    }
+    ]
 
     return Instance.from_components(
         decision_variables=variables,
@@ -137,15 +137,17 @@ def build_blending_instance(
     return Instance.from_components(
         decision_variables=variables,
         objective=Linear(terms=dict(enumerate(costs))),
-        constraints={
-            0: Constraint(
+        constraints=[
+            Constraint(
+                id=0,
                 function=Linear(
                     terms={i: -1 for i in range(size)}, constant=size * 0.25
                 ),
                 equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
                 name="demand",
             ),
-            1: Constraint(
+            Constraint(
+                id=1,
                 function=Linear(
                     terms={i: -quality for i, quality in enumerate(qualities)},
                     constant=size * 0.15,
@@ -153,7 +155,7 @@ def build_blending_instance(
                 equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
                 name="quality",
             ),
-        },
+        ],
         sense=Instance.MINIMIZE,
     )
 
@@ -195,14 +197,14 @@ def build_assignment_instance(
         )
         for task in range(size)
     ]
-    constraints, one_hot_constraints = _build_one_hot_constraints(specs, formulation)
+    constraints, constraint_hints = _build_one_hot_constraints(specs, formulation)
 
     return Instance.from_components(
         decision_variables=variables,
         objective=Linear(terms=costs),
         constraints=constraints,
-        one_hot_constraints=one_hot_constraints,
         sense=Instance.MINIMIZE,
+        constraint_hints=constraint_hints,
     )
 
 
@@ -241,8 +243,9 @@ def build_facility_location_instance(
             for facility in range(size)
         }
     )
-    constraints = {
-        customer: Constraint(
+    constraints = [
+        Constraint(
+            id=customer,
             function=Linear(
                 terms={
                     assignment_id(customer, facility): 1 for facility in range(size)
@@ -254,20 +257,17 @@ def build_facility_location_instance(
             subscripts=[customer],
         )
         for customer in range(size)
-    }
-    constraints.update(
-        {
-            size + customer * size + facility: Constraint(
-                function=Linear(
-                    terms={assignment_id(customer, facility): 1, facility: -1}
-                ),
-                equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
-                name="open-facility",
-                subscripts=[customer, facility],
-            )
-            for customer in range(size)
-            for facility in range(size)
-        }
+    ]
+    constraints.extend(
+        Constraint(
+            id=size + customer * size + facility,
+            function=Linear(terms={assignment_id(customer, facility): 1, facility: -1}),
+            equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
+            name="open-facility",
+            subscripts=[customer, facility],
+        )
+        for customer in range(size)
+        for facility in range(size)
     )
 
     return Instance.from_components(
@@ -308,13 +308,14 @@ def build_portfolio_instance(
             values=values,
             linear=Linear(terms={i: -value for i, value in enumerate(returns)}),
         ),
-        constraints={
-            0: Constraint(
+        constraints=[
+            Constraint(
+                id=0,
                 function=Linear(terms={i: 1 for i in range(size)}, constant=-1),
                 equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
                 name="budget",
             )
-        },
+        ],
         sense=Instance.MINIMIZE,
     )
 
@@ -383,7 +384,7 @@ def build_tsp_instance(
         )
         for city in range(num_cities)
     ]
-    constraints, one_hot_constraints = _build_one_hot_constraints(
+    constraints, constraint_hints = _build_one_hot_constraints(
         constraint_specs, formulation
     )
 
@@ -391,6 +392,6 @@ def build_tsp_instance(
         decision_variables=decision_variables,
         objective=objective,
         constraints=constraints,
-        one_hot_constraints=one_hot_constraints,
         sense=Instance.MINIMIZE,
+        constraint_hints=constraint_hints,
     )

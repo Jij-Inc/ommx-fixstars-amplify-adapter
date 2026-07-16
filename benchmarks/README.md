@@ -1,7 +1,7 @@
 # Adapter conversion benchmarks
 
 問題は `--instance`、サイズは `--size` で選択します。
-すべて固定seedからOMMX v3 Instanceを直接生成します。
+すべて固定seedからOMMX v2 Instanceを直接生成します。
 
 ## Instance
 
@@ -21,10 +21,11 @@
 
 制約表現は `--formulation regular` または `--formulation one-hot` で選択します。
 `one-hot` を選択できるのは `assignment` と `tsp` だけです。
-v3のOneHotはfirst-classな `OneHotConstraint` として表現します。
-`regular` では同じ数式を通常の等式制約として、`one-hot` ではOneHot特殊制約として生成します。
-Adapterは `AdditionalCapability.OneHot` を宣言しているため、後者は `amplify.one_hot` に直接変換されます。
-この比較では、同じ数理構造を通常制約とOneHot特殊制約で表した場合の変換時間とメモリの違いを測定します。
+v2のOneHotは通常の等式制約と `ConstraintHints.OneHot` の組で表現します。
+
+現在のAdapterは `ConstraintHints` を参照せず、すべての制約を通常制約として変換します
+(`amplify.one_hot` は未使用)。そのため `regular` と `one-hot` で生成されるAmplifyモデルは
+同一であり、この比較はヒント付与が変換時間・メモリにオーバーヘッドを生まないことの確認が目的です。
 
 ## 測定対象
 
@@ -40,13 +41,13 @@ mkdir -p benchmark_results
 for size in 100 400 900; do
   uv run --frozen python benchmarks/timing.py instance-to-model \
     --instance knapsack --formulation regular --size "$size" \
-    | tee "benchmark_results/v3-knapsack-instance-to-model-timing-${size}.csv"
+    | tee "benchmark_results/v2-knapsack-instance-to-model-timing-${size}.csv"
 done
 
 for size in 10 20 30; do
   uv run --frozen python benchmarks/timing.py instance-to-model \
     --instance tsp --formulation one-hot --size "$size" \
-    | tee "benchmark_results/v3-one-hot-instance-to-model-timing-${size}.csv"
+    | tee "benchmark_results/v2-one-hot-instance-to-model-timing-${size}.csv"
 done
 ```
 
@@ -57,13 +58,13 @@ export AMPLIFY_TOKEN=YOUR_TOKEN
 for size in 10 20 30; do
   uv run --frozen python benchmarks/timing.py result-to-solution \
     --instance tsp --formulation regular --size "$size" \
-    | tee "benchmark_results/v3-regular-result-to-solution-timing-${size}.csv"
+    | tee "benchmark_results/v2-regular-result-to-solution-timing-${size}.csv"
 done
 
 for size in 10 20 30; do
   uv run --frozen python benchmarks/timing.py result-to-solution \
     --instance tsp --formulation one-hot --size "$size" \
-    | tee "benchmark_results/v3-one-hot-result-to-solution-timing-${size}.csv"
+    | tee "benchmark_results/v2-one-hot-result-to-solution-timing-${size}.csv"
 done
 ```
 

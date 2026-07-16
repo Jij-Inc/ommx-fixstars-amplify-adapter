@@ -4,7 +4,7 @@ from importlib.metadata import version
 from typing import Any
 
 import amplify
-from ommx import Instance
+from ommx.v1 import Instance
 
 from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
 
