@@ -142,6 +142,7 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+/benchmark_results/
 .dmypy.json
 dmypy.json
 
