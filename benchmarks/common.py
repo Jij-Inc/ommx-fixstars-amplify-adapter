@@ -11,6 +11,7 @@ from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
 from instance import (
     build_assignment_instance,
     build_blending_instance,
+    build_clique_instance,
     build_facility_location_instance,
     build_knapsack_instance,
     build_portfolio_instance,
@@ -25,6 +26,7 @@ INSTANCE_BUILDERS = {
     "assignment": build_assignment_instance,
     "facility-location": build_facility_location_instance,
     "portfolio": build_portfolio_instance,
+    "clique": build_clique_instance,
     "tsp": build_tsp_instance,
 }
 INSTANCE_NAMES = tuple(INSTANCE_BUILDERS)

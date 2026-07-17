@@ -319,6 +319,61 @@ def build_portfolio_instance(
     )
 
 
+def build_clique_instance(
+    size: int, seed: int = 0, formulation: str = "regular"
+) -> Instance:
+    """Build a binary feasibility problem to measure quadratic constraints."""
+    _check_size(size, minimum=2)
+    _require_regular(formulation)
+    random_generator = random.Random(seed)
+    clique_size = (size + 1) // 2
+    random_vertex_count = size - clique_size
+    clique_vertices = range(random_vertex_count, size)
+
+    edges = [
+        (u, v)
+        for u in range(random_vertex_count)
+        for v in range(u + 1, random_vertex_count)
+        if random_generator.random() < 0.2
+    ]
+    edges.extend((u, v) for u in clique_vertices for v in range(u + 1, size))
+    edges.extend((u, random_vertex_count) for u in range(random_vertex_count))
+
+    variables = [
+        DecisionVariable.binary(i, name="x", subscripts=[i]) for i in range(size)
+    ]
+    constraints = {
+        0: Constraint(
+            function=Linear(
+                terms={i: 1 for i in range(size)},
+                constant=-clique_size,
+            ),
+            equality=Constraint.EQUAL_TO_ZERO,
+            name="clique-size",
+        ),
+        1: Constraint(
+            function=Quadratic(
+                columns=[u for u, _ in edges],
+                rows=[v for _, v in edges],
+                values=[1 for _ in edges],
+                linear=Linear(
+                    terms={},
+                    constant=-(clique_size * (clique_size - 1) // 2),
+                ),
+            ),
+            equality=Constraint.EQUAL_TO_ZERO,
+            name="complete-subgraph",
+        ),
+    }
+
+    return Instance.from_components(
+        decision_variables=variables,
+        objective=Linear(terms={}),
+        constraints=constraints,
+        sense=Instance.MINIMIZE,
+    )
+
+
 def build_tsp_instance(
     num_cities: int, seed: int = 0, formulation: str = "regular"
 ) -> Instance:

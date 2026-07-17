@@ -13,11 +13,12 @@
 | `assignment` | Binary | 1次 | 通常制約とOneHotの比較 | `regular` / `one-hot` | 10 / 20 / 30 |
 | `facility-location` | Binary + Continuous | 1次 | 混合変数型と連結不等式 | `regular` | 10 / 20 / 30 |
 | `portfolio` | Continuous | 2次 | Realの2次目的関数と予算上限 | `regular` | 50 / 100 / 200 |
+| `clique` | Binary | 定数0 | 1次等式と2次等式制約の変換 | `regular` | 50 / 100 / 200 |
 | `tsp` | Binary | 2次 | 通常制約とOneHotの比較 | `regular` / `one-hot` | 10 / 20 / 30 |
 
 `size` は `knapsack`、`production`、`blending` では変数数、
 `assignment` と `tsp` では一辺の要素数、`facility-location` では施設数と顧客数、
-`portfolio` では資産数を表します。
+`portfolio` では資産数、`clique` では頂点数を表します。
 
 制約表現は `--formulation regular` または `--formulation one-hot` で選択します。
 `one-hot` を選択できるのは `assignment` と `tsp` だけです。
