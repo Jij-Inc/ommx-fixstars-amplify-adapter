@@ -27,11 +27,23 @@ def main() -> None:
     args = parser.parse_args()
 
     print(
-        "operation,instance,formulation,size,median_seconds,ommx_version,"
-        "amplify_version,adapter_version"
+        "operation,instance,formulation,size,first_seconds,median_seconds,"
+        "ommx_version,amplify_version,adapter_version"
     )
     instance = build_instance(args.instance, args.size, args.seed, args.formulation)
     target = prepare_target(args.operation, instance, args.solver_time_limit_ms)
+
+    gc_was_enabled = gc.isenabled()
+    gc.disable()
+    try:
+        gc.collect()
+        start = time.perf_counter()
+        first_result = target()
+        first_seconds = time.perf_counter() - start
+        del first_result
+    finally:
+        if gc_was_enabled:
+            gc.enable()
 
     for _ in range(args.warmup):
         result = target()
@@ -57,6 +69,7 @@ def main() -> None:
         args.instance,
         args.formulation,
         args.size,
+        f"{first_seconds:.9f}",
         f"{statistics.median(samples):.9f}",
         *PACKAGE_VERSIONS,
         sep=",",
