@@ -57,7 +57,14 @@ def _build_one_hot_constraints(
 def build_knapsack_instance(
     size: int, seed: int = 0, formulation: str = "regular"
 ) -> Instance:
-    """Build a binary linear problem to measure Binary and linear conversion."""
+    """Build a binary linear knapsack problem.
+
+    Maximize:
+        sum_i value[i] * x[i]
+    Subject to:
+        sum_i weight[i] * x[i] <= sum_i weight[i] // 2
+        x[i] in {0, 1}
+    """
     _check_size(size)
     _require_regular(formulation)
     random_generator = random.Random(seed)
@@ -87,7 +94,15 @@ def build_knapsack_instance(
 def build_production_instance(
     size: int, seed: int = 0, formulation: str = "regular"
 ) -> Instance:
-    """Build an integer linear problem to measure bounded Integer conversion."""
+    """Build an integer linear production problem.
+
+    Maximize:
+        sum_i profit[i] * x[i]
+    Subject to:
+        sum_i resource[r, i] * x[i] <= 5 * sum_i resource[r, i]
+            for r in {0, 1, 2}
+        0 <= x[i] <= 10, x[i] is Integer
+    """
     _check_size(size)
     _require_regular(formulation)
     random_generator = random.Random(seed)
@@ -123,7 +138,15 @@ def build_production_instance(
 def build_blending_instance(
     size: int, seed: int = 0, formulation: str = "regular"
 ) -> Instance:
-    """Build a continuous linear problem to measure Real and bound conversion."""
+    """Build a continuous linear blending problem.
+
+    Minimize:
+        sum_i cost[i] * x[i]
+    Subject to:
+        sum_i x[i] >= 0.25 * size
+        sum_i quality[i] * x[i] >= 0.15 * size
+        0 <= x[i] <= 1, x[i] is Continuous
+    """
     _check_size(size)
     _require_regular(formulation)
     random_generator = random.Random(seed)
@@ -161,7 +184,15 @@ def build_blending_instance(
 def build_assignment_instance(
     size: int, seed: int = 0, formulation: str = "regular"
 ) -> Instance:
-    """Build a binary linear problem to compare regular and OneHot constraints."""
+    """Build a binary linear assignment problem.
+
+    Minimize:
+        sum_{worker, task} cost[worker, task] * x[worker, task]
+    Subject to:
+        sum_task x[worker, task] = 1 for each worker
+        sum_worker x[worker, task] = 1 for each task
+        x[worker, task] in {0, 1}
+    """
     _check_size(size)
     random_generator = random.Random(seed)
 
@@ -209,7 +240,17 @@ def build_assignment_instance(
 def build_facility_location_instance(
     size: int, seed: int = 0, formulation: str = "regular"
 ) -> Instance:
-    """Build a mixed linear problem to measure Binary and Continuous conversion."""
+    """Build a mixed linear facility-location problem.
+
+    Minimize:
+        sum_f open_cost[f] * open[f]
+        + sum_{c, f} assign_cost[c, f] * assign[c, f]
+    Subject to:
+        sum_f assign[c, f] <= 1 for each customer c
+        assign[c, f] <= open[f] for each customer c and facility f
+        open[f] in {0, 1}
+        0 <= assign[c, f] <= 1, assign[c, f] is Continuous
+    """
     _check_size(size)
     _require_regular(formulation)
     random_generator = random.Random(seed)
@@ -301,7 +342,14 @@ def _build_portfolio_objective(size: int, random_generator: random.Random) -> Qu
 def build_portfolio_instance(
     size: int, seed: int = 0, formulation: str = "regular"
 ) -> Instance:
-    """Build a continuous quadratic problem to measure Real quadratic conversion."""
+    """Build a continuous quadratic portfolio problem.
+
+    Minimize:
+        sum_{i, j} risk[i, j] * x[i] * x[j] - sum_i return[i] * x[i]
+    Subject to:
+        sum_i x[i] <= 1
+        0 <= x[i] <= 1, x[i] is Continuous
+    """
     _check_size(size)
     _require_regular(formulation)
     random_generator = random.Random(seed)
@@ -327,7 +375,17 @@ def build_portfolio_instance(
 def build_portfolio_cardinality_instance(
     size: int, seed: int = 0, formulation: str = "regular"
 ) -> Instance:
-    """Build a mixed quadratic portfolio to measure Binary cardinality links."""
+    """Build a mixed quadratic portfolio with a cardinality constraint.
+
+    Minimize:
+        sum_{i, j} risk[i, j] * x[i] * x[j] - sum_i return[i] * x[i]
+    Subject to:
+        sum_i x[i] <= 1
+        x[i] <= z[i] for each asset i
+        sum_i z[i] <= max(1, size // 4)
+        0 <= x[i] <= 1, x[i] is Continuous
+        z[i] in {0, 1}
+    """
     _check_size(size)
     _require_regular(formulation)
     random_generator = random.Random(seed)
@@ -376,7 +434,20 @@ def build_portfolio_cardinality_instance(
 def build_unit_commitment_instance(
     size: int, seed: int = 0, formulation: str = "regular"
 ) -> Instance:
-    """Build a mixed quadratic problem to measure Integer squared terms."""
+    """Build a mixed quadratic unit-commitment problem.
+
+    Minimize:
+        sum_i (
+            quadratic_cost[i] * p[i]^2
+            + production_cost[i] * p[i]
+            + startup_cost[i] * u[i]
+        )
+    Subject to:
+        p[i] <= 10 * u[i] for each generator i
+        sum_i p[i] >= 5 * size
+        u[i] in {0, 1}
+        0 <= p[i] <= 10, p[i] is Integer
+    """
     _check_size(size)
     _require_regular(formulation)
     random_generator = random.Random(seed)
@@ -435,7 +506,16 @@ def build_unit_commitment_instance(
 def build_clique_instance(
     size: int, seed: int = 0, formulation: str = "regular"
 ) -> Instance:
-    """Build a binary feasibility problem to measure quadratic constraints."""
+    """Build a binary clique feasibility problem with a quadratic constraint.
+
+    Minimize:
+        0
+    Subject to:
+        sum_v x[v] = K
+        sum_{(u, v) in edges} x[u] * x[v] = K * (K - 1) / 2
+        K = (size + 1) // 2
+        x[v] in {0, 1}
+    """
     _check_size(size, minimum=2)
     _require_regular(formulation)
     random_generator = random.Random(seed)
@@ -490,7 +570,16 @@ def build_clique_instance(
 def build_tsp_instance(
     num_cities: int, seed: int = 0, formulation: str = "regular"
 ) -> Instance:
-    """Build a binary quadratic TSP to compare regular and OneHot constraints."""
+    """Build a binary quadratic traveling-salesperson problem.
+
+    Minimize:
+        sum_{t, i, j} distance[i, j] * x[i, t] * x[j, next(t)]
+    Subject to:
+        sum_i x[i, t] = 1 for each time t
+        sum_t x[i, t] = 1 for each city i
+        next(t) = (t + 1) % num_cities
+        x[i, t] in {0, 1}
+    """
     _check_size(num_cities, minimum=2)
 
     random_generator = random.Random(seed)
