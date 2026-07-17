@@ -15,13 +15,16 @@
 | `portfolio` | Continuous | 2次 | Realの2次目的関数と予算上限 | `regular` | 50 / 100 / 200 |
 | `portfolio-cardinality` | Continuous + Binary | 2次 | Continuousの2次目的関数とBinaryの基数・連結制約 | `regular` | 50 / 100 / 200 |
 | `unit-commitment` | Integer + Binary | 2次 | Integerの2乗項とBinaryの起動・連結制約 | `regular` | 50 / 200 / 450 |
-| `clique` | Binary | 定数0 | 1次等式と2次等式制約の変換 | `regular` | 50 / 100 / 200 |
+| `clique` | Binary | 定数0 | 1次等式と2次等式制約の変換 | `regular` | Instance → Model: 50 / 100 / 200、Result → Solution: 10 / 20 / 30 |
 | `tsp` | Binary | 2次 | 通常制約とOneHotの比較 | `regular` / `one-hot` | 10 / 20 / 30 |
 
 `size` は `knapsack`、`production`、`blending` では変数数、
 `assignment` と `tsp` では一辺の要素数、`facility-location` では施設数と顧客数、
 `portfolio` と `portfolio-cardinality` では資産数、`unit-commitment` では発電機数、
 `clique` では頂点数を表します。
+`clique` は、2次制約の変換負荷を測る `instance-to-model` では
+50 / 100 / 200、Amplifyが実行可能解を返せる規模でデコードを測る
+`result-to-solution` では 10 / 20 / 30 を使用します。
 
 制約表現は `--formulation regular` または `--formulation one-hot` で選択します。
 `one-hot` を選択できるのは `assignment` と `tsp` だけです。
