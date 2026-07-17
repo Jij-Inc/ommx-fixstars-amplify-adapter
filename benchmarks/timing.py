@@ -23,7 +23,7 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--warmup", type=int, default=3)
     parser.add_argument("--repeat", type=int, default=20)
-    parser.add_argument("--solver-time-limit-ms", type=int, default=1000)
+    parser.add_argument("--solver-time-limit-ms", type=int, default=120_000)
     args = parser.parse_args()
 
     print(
