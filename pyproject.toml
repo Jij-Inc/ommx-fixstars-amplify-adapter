@@ -23,6 +23,7 @@ classifiers = [
 ]
 
 dependencies = [
+    # Latest release in the OMMX v2 series
     "ommx == 2.6.1",
     "amplify >= 1.2.0, < 2.0.0", 
 ]
