@@ -14,9 +14,11 @@ from instance import (
     build_clique_instance,
     build_facility_location_instance,
     build_knapsack_instance,
+    build_portfolio_cardinality_instance,
     build_portfolio_instance,
     build_production_instance,
     build_tsp_instance,
+    build_unit_commitment_instance,
 )
 
 INSTANCE_BUILDERS = {
@@ -26,6 +28,8 @@ INSTANCE_BUILDERS = {
     "assignment": build_assignment_instance,
     "facility-location": build_facility_location_instance,
     "portfolio": build_portfolio_instance,
+    "portfolio-cardinality": build_portfolio_cardinality_instance,
+    "unit-commitment": build_unit_commitment_instance,
     "clique": build_clique_instance,
     "tsp": build_tsp_instance,
 }

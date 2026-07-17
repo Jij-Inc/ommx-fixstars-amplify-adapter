@@ -278,19 +278,9 @@ def build_facility_location_instance(
     )
 
 
-def build_portfolio_instance(
-    size: int, seed: int = 0, formulation: str = "regular"
-) -> Instance:
-    """Build a continuous quadratic problem to measure Real quadratic conversion."""
-    _check_size(size)
-    _require_regular(formulation)
-    random_generator = random.Random(seed)
+def _build_portfolio_objective(size: int, random_generator: random.Random) -> Quadratic:
     factors = [random_generator.uniform(0.1, 0.5) for _ in range(size)]
     returns = [random_generator.uniform(0.05, 0.2) for _ in range(size)]
-    variables = [
-        DecisionVariable.continuous(i, lower=0, upper=1, name="x", subscripts=[i])
-        for i in range(size)
-    ]
     columns = []
     rows = []
     values = []
@@ -300,14 +290,29 @@ def build_portfolio_instance(
             rows.append(j)
             values.append(factors[i] * factors[j] + (0.1 if i == j else 0))
 
+    return Quadratic(
+        columns=columns,
+        rows=rows,
+        values=values,
+        linear=Linear(terms={i: -value for i, value in enumerate(returns)}),
+    )
+
+
+def build_portfolio_instance(
+    size: int, seed: int = 0, formulation: str = "regular"
+) -> Instance:
+    """Build a continuous quadratic problem to measure Real quadratic conversion."""
+    _check_size(size)
+    _require_regular(formulation)
+    random_generator = random.Random(seed)
+    variables = [
+        DecisionVariable.continuous(i, lower=0, upper=1, name="x", subscripts=[i])
+        for i in range(size)
+    ]
+
     return Instance.from_components(
         decision_variables=variables,
-        objective=Quadratic(
-            columns=columns,
-            rows=rows,
-            values=values,
-            linear=Linear(terms={i: -value for i, value in enumerate(returns)}),
-        ),
+        objective=_build_portfolio_objective(size, random_generator),
         constraints={
             0: Constraint(
                 function=Linear(terms={i: 1 for i in range(size)}, constant=-1),
@@ -315,6 +320,114 @@ def build_portfolio_instance(
                 name="budget",
             )
         },
+        sense=Instance.MINIMIZE,
+    )
+
+
+def build_portfolio_cardinality_instance(
+    size: int, seed: int = 0, formulation: str = "regular"
+) -> Instance:
+    """Build a mixed quadratic portfolio to measure Binary cardinality links."""
+    _check_size(size)
+    _require_regular(formulation)
+    random_generator = random.Random(seed)
+    cardinality = max(1, size // 4)
+    variables = [
+        DecisionVariable.continuous(i, lower=0, upper=1, name="x", subscripts=[i])
+        for i in range(size)
+    ] + [
+        DecisionVariable.binary(size + i, name="z", subscripts=[i]) for i in range(size)
+    ]
+    constraints = {
+        0: Constraint(
+            function=Linear(terms={i: 1 for i in range(size)}, constant=-1),
+            equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
+            name="budget",
+        )
+    }
+    constraints.update(
+        {
+            i + 1: Constraint(
+                function=Linear(terms={i: 1, size + i: -1}),
+                equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
+                name="selection",
+                subscripts=[i],
+            )
+            for i in range(size)
+        }
+    )
+    constraints[size + 1] = Constraint(
+        function=Linear(
+            terms={size + i: 1 for i in range(size)},
+            constant=-cardinality,
+        ),
+        equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
+        name="cardinality",
+    )
+
+    return Instance.from_components(
+        decision_variables=variables,
+        objective=_build_portfolio_objective(size, random_generator),
+        constraints=constraints,
+        sense=Instance.MINIMIZE,
+    )
+
+
+def build_unit_commitment_instance(
+    size: int, seed: int = 0, formulation: str = "regular"
+) -> Instance:
+    """Build a mixed quadratic problem to measure Integer squared terms."""
+    _check_size(size)
+    _require_regular(formulation)
+    random_generator = random.Random(seed)
+    quadratic_costs = [random_generator.uniform(0.1, 0.5) for _ in range(size)]
+    production_costs = [random_generator.uniform(0.5, 1.5) for _ in range(size)]
+    startup_costs = [random_generator.uniform(1, 2) for _ in range(size)]
+
+    def production_id(generator: int) -> int:
+        return size + generator
+
+    variables = [
+        DecisionVariable.binary(i, name="u", subscripts=[i]) for i in range(size)
+    ] + [
+        DecisionVariable.integer(
+            production_id(i), lower=0, upper=10, name="p", subscripts=[i]
+        )
+        for i in range(size)
+    ]
+    objective = Quadratic(
+        columns=[production_id(i) for i in range(size)],
+        rows=[production_id(i) for i in range(size)],
+        values=quadratic_costs,
+        linear=Linear(
+            terms={
+                **{production_id(i): production_costs[i] for i in range(size)},
+                **{i: startup_costs[i] for i in range(size)},
+            }
+        ),
+    )
+    constraints = {
+        i: Constraint(
+            function=Linear(terms={production_id(i): 1, i: -10}),
+            equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
+            name="production-limit",
+            subscripts=[i],
+        )
+        for i in range(size)
+    }
+    constraints[size] = Constraint(
+        function=Linear(
+            terms={production_id(i): -1 for i in range(size)},
+            constant=size * 5,
+        ),
+        equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
+        name="demand",
+    )
+
+    return Instance.from_components(
+        decision_variables=variables,
+        objective=objective,
+        constraints=constraints,
         sense=Instance.MINIMIZE,
     )
 
