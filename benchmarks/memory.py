@@ -21,7 +21,7 @@ def main() -> None:
     parser.add_argument("--formulation", choices=FORMULATIONS, default="regular")
     parser.add_argument("--size", required=True, type=int)
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--solver-time-limit-ms", type=int, default=1000)
+    parser.add_argument("--solver-time-limit-ms", type=int, default=120_000)
     args = parser.parse_args()
 
     try:

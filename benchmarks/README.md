@@ -32,7 +32,7 @@ v2のOneHotは通常の等式制約と `ConstraintHints.OneHot` の組で表現�
 `instance-to-model` はAdapterの生成だけを測定します。
 `result-to-solution` はAmplifyでの求解を測定外で一度行い、`adapter.decode(result)`だけを測定します。
 時間測定ではウォームアップ後の計測中にGCを停止し、メモリ測定ではTracker開始前に1回ウォームアップします。
-`portfolio` のsize 200だけは求解準備に `--solver-time-limit-ms 10000` を使用し、その他は既定値の1000を使用します。
+求解準備で使用するsolver time limitは、すべてのInstanceで既定値の120秒です。
 
 ## 処理時間
 
