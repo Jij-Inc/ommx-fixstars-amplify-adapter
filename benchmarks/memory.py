@@ -32,27 +32,35 @@ def main() -> None:
     instance = build_instance(args.instance, args.size, args.seed, args.formulation)
     target = prepare_target(args.operation, instance, args.solver_time_limit_ms)
 
-    warmup_result = target()
-    del warmup_result
     gc.collect()
     with TemporaryDirectory() as directory:
-        capture = Path(directory) / "capture.bin"
-        with memray.Tracker(capture):
+        first_capture = Path(directory) / "first.bin"
+        with memray.Tracker(first_capture):
+            first_result = target()
+        del first_result
+        first_reader = memray.FileReader(first_capture)
+        first_peak_memory_bytes = first_reader.metadata.peak_memory
+        first_reader.close()
+
+        gc.collect()
+        warmed_capture = Path(directory) / "warmed.bin"
+        with memray.Tracker(warmed_capture):
             result = target()
         del result
-        reader = memray.FileReader(capture)
+        reader = memray.FileReader(warmed_capture)
         peak_memory_bytes = reader.metadata.peak_memory
         reader.close()
 
     print(
-        "operation,instance,formulation,size,peak_memory_bytes,ommx_version,"
-        "amplify_version,adapter_version"
+        "operation,instance,formulation,size,first_peak_memory_bytes,"
+        "peak_memory_bytes,ommx_version,amplify_version,adapter_version"
     )
     print(
         args.operation,
         args.instance,
         args.formulation,
         args.size,
+        first_peak_memory_bytes,
         peak_memory_bytes,
         *PACKAGE_VERSIONS,
         sep=",",

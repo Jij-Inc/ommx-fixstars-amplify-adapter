@@ -14,7 +14,7 @@
 | `facility-location` | Binary + Continuous | 1次 | 混合変数型と連結不等式 | `regular` | 10 / 20 / 30 |
 | `portfolio` | Continuous | 2次 | Realの2次目的関数と予算上限 | `regular` | 50 / 100 / 200 |
 | `portfolio-cardinality` | Continuous + Binary | 2次 | Continuousの2次目的関数とBinaryの基数・連結制約 | `regular` | 50 / 100 / 200 |
-| `unit-commitment` | Integer + Binary | 2次 | Integerの2乗項とBinaryの起動・連結制約 | `regular` | 100 / 400 / 900 |
+| `unit-commitment` | Integer + Binary | 2次 | Integerの2乗項とBinaryの起動・連結制約 | `regular` | 50 / 200 / 450 |
 | `clique` | Binary | 定数0 | 1次等式と2次等式制約の変換 | `regular` | 50 / 100 / 200 |
 | `tsp` | Binary | 2次 | 通常制約とOneHotの比較 | `regular` / `one-hot` | 10 / 20 / 30 |
 
@@ -35,7 +35,9 @@ v2のOneHotは通常の等式制約と `ConstraintHints.OneHot` の組で表現�
 
 `instance-to-model` はAdapterの生成だけを測定します。
 `result-to-solution` はAmplifyでの求解を測定外で一度行い、`adapter.decode(result)`だけを測定します。
-時間測定ではウォームアップ後の計測中にGCを停止し、メモリ測定ではTracker開始前に1回ウォームアップします。
+時間測定では、プロセス内でウォームアップ前の初回実行時間と、ウォームアップ後20回の中央値を記録します。
+メモリ測定では、ウォームアップ前の初回実行と、その実行をウォームアップとした2回目のピークメモリを記録します。
+時間計測中はGCを停止します。
 求解準備で使用するsolver time limitは、すべてのInstanceで既定値の120秒です。
 
 ## 処理時間
