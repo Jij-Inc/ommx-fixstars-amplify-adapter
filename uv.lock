@@ -229,7 +229,7 @@ name = "exceptiongroup"
 version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/0b/9f/a65090624ecf468cdca03533906e7c69ed7588582240cfe7cc9e770b50eb/exceptiongroup-1.3.0.tar.gz", hash = "sha256:b241f5885f560bc56a59ee63ca4c6a8bfa46ae4ad651af316d4e81817bb9fd88", size = 29749 }
 wheels = [
@@ -691,8 +691,8 @@ wheels = [
 
 [[package]]
 name = "ommx"
-version = "3.0.0a8"
-source = { registry = "https://pypi.org/simple" }
+version = "3.0.0b3"
+source = { editable = "../../ommx/python/ommx" }
 dependencies = [
     { name = "ipython", version = "8.39.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "ipython", version = "9.15.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
@@ -707,14 +707,19 @@ dependencies = [
     { name = "python-dateutil" },
     { name = "typing-extensions" },
 ]
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/14/13/d2571f9094f332c747caf85c9d41ad4d5875afc37f9956d4a2358f614e4b/ommx-3.0.0a8-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:950fad4644d64d2ae0c6384b6efe14890fb8f5a3bec0fa4dc0aa978cd7598a86", size = 7503696 },
-    { url = "https://files.pythonhosted.org/packages/02/bb/8158fee9e9f88dae2ef9bc57cda87e8d744d23bef37a9f8191f90ec1fe19/ommx-3.0.0a8-cp310-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:8229bb1e66408e99f2b306f2f7c085b2e03f6b55c8d0ca8912f08ebafcbf1f8d", size = 7543856 },
-    { url = "https://files.pythonhosted.org/packages/99/e0/be701d4b21a389de0fbba5086908f9e934e12e0c8a65d2d3cda6d0a5fea6/ommx-3.0.0a8-cp310-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:dad2154bb8ec7b1d4d1df0a7e2b3469fe4d4fd03de975a19e94fad4f0c2b80c7", size = 8413879 },
-    { url = "https://files.pythonhosted.org/packages/79/37/eb24c83c7300a0d4231e9b711cc0b13d7c4901aad2c84e389c1fe3ac4bc6/ommx-3.0.0a8-cp310-abi3-win_amd64.whl", hash = "sha256:8ec84043e7786ffa2955fb9b973c17c4912badda70f1176fa34a29c56427b69c", size = 7959349 },
-    { url = "https://files.pythonhosted.org/packages/67/02/e0c96a7a25fcd535476d180798fa4060547c22fb79b37729b328ae2c5791/ommx-3.0.0a8-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:a7a7f051f87f11e4fd0ab7b4d640111174e3f2c7afb61b9f6f1878152b77c124", size = 7506676 },
-    { url = "https://files.pythonhosted.org/packages/70/bf/bbeaf5e0d05e745a3a6d838d49b0e3ec255afeb08c306c7cc14b4f01c25d/ommx-3.0.0a8-cp314-cp314t-manylinux_2_28_aarch64.whl", hash = "sha256:c3afb62f0f40ab5e2a07427e4a92805945b3159a68d317eab5f28bd3f2b26d94", size = 7547933 },
-    { url = "https://files.pythonhosted.org/packages/d8/cc/77a41adc0bfcf3c6ac0c0f6292b41c6cb48b27f7c2006aa0e71ae2196778/ommx-3.0.0a8-cp314-cp314t-manylinux_2_28_x86_64.whl", hash = "sha256:f27b14a1a0c9340be7cc01e1d49279cc53ef7f2ad4578657069b417ff6284a46", size = 8422247 },
+
+[package.metadata]
+requires-dist = [
+    { name = "ipython", specifier = ">=7.0.0" },
+    { name = "msgpack", specifier = ">=1.0.0,<2.0.0" },
+    { name = "numpy", specifier = ">=1.23.0,<3.0.0" },
+    { name = "opentelemetry-exporter-otlp-proto-common", specifier = ">=1.20.0" },
+    { name = "opentelemetry-proto", specifier = ">=1.20.0" },
+    { name = "opentelemetry-sdk", specifier = ">=1.20.0" },
+    { name = "pandas", specifier = ">=2.0.0,<3.0.0" },
+    { name = "pyarrow", specifier = ">=16.0.0,<23.0.0" },
+    { name = "python-dateutil", specifier = ">=2.9.0,<3.0.0" },
+    { name = "typing-extensions", specifier = ">=4.12.2,<5.0.0" },
 ]
 
 [[package]]
@@ -740,7 +745,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "amplify", specifier = ">=1.2.0,<2.0.0" },
-    { name = "ommx", specifier = ">=3.0.0a8,<4.0.0" },
+    { name = "ommx", editable = "../../ommx/python/ommx" },
     { name = "pyright", marker = "extra == 'dev'" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "ruff", marker = "extra == 'dev'" },

@@ -23,7 +23,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "ommx >= 3.0.0a8, < 4.0.0",
+    "ommx >= 3.0.0b3, < 4.0.0",
     "amplify >= 1.2.0, < 2.0.0", 
 ]
 
@@ -40,3 +40,8 @@ dev = [
 
 [tool.setuptools_scm]
 version_file = "ommx_fixstars_amplify_adapter/_version.py"
+
+# TODO: Temporary local source override until OMMX 3.0.0b3 is published.
+# Remove this section and regenerate uv.lock against PyPI after the release.
+[tool.uv.sources]
+ommx = { path = "../../ommx/python/ommx", editable = true }
