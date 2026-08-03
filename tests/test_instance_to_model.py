@@ -1,5 +1,6 @@
 import amplify
 import pytest
+from ommx.adapter import AdapterNotApplicableError
 from ommx import (
     Instance,
     Constraint,
@@ -10,7 +11,6 @@ from ommx import (
     Polynomial,
 )
 
-from ommx_fixstars_amplify_adapter.exception import OMMXFixstarsAmplifyAdapterError
 from ommx_fixstars_amplify_adapter.adapter import OMMXFixstarsAmplifyAdapter
 from conftest import assert_amplify_model
 
@@ -151,7 +151,7 @@ def test_error_unsupported_variable_kind():
         sense=Instance.MINIMIZE,
     )
 
-    with pytest.raises(OMMXFixstarsAmplifyAdapterError):
+    with pytest.raises(AdapterNotApplicableError):
         OMMXFixstarsAmplifyAdapter(instance)
 
 

@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 import amplify
 
 from ommx import (
@@ -7,21 +9,49 @@ from ommx import (
     Constraint,
     Function,
     State,
-    AdditionalCapability,
+    DegreeBound,
+    Equality,
+    InstanceClass,
+    InstanceClassClause,
+    Kind,
+    Sense,
 )
 from ommx.adapter import DiagnosticsSink, SolverAdapter
 
 from .exception import OMMXFixstarsAmplifyAdapterError
 
 
+_POLYNOMIAL_REGULAR_CONSTRAINT_DEGREE_BOUNDS = {
+    Equality.EqualToZero: DegreeBound.unbounded(),
+    Equality.LessThanOrEqualToZero: DegreeBound.unbounded(),
+}
+
+
 class OMMXFixstarsAmplifyAdapter(SolverAdapter):
-    ADDITIONAL_CAPABILITIES = frozenset({AdditionalCapability.OneHot})
+    INPUT_CLASS: ClassVar[InstanceClass | None] = InstanceClass(
+        [
+            InstanceClassClause(
+                label="fixstars-amplify-polynomial",
+                allowed_variable_kinds={
+                    Kind.Binary,
+                    Kind.Integer,
+                    Kind.Continuous,
+                },
+                objective_degree_bound=DegreeBound.unbounded(),
+                regular_constraint_degree_bounds=(
+                    _POLYNOMIAL_REGULAR_CONSTRAINT_DEGREE_BOUNDS
+                ),
+                allows_one_hot=True,
+                allowed_senses={Sense.Minimize, Sense.Maximize},
+            )
+        ]
+    )
 
     def __init__(self, ommx_instance: Instance):
         """
         :param ommx_instance: The ommx.Instance to solve.
         """
-        super().__init__(ommx_instance)
+        self.require_applicable(ommx_instance)
         self.instance = ommx_instance
         self.model = amplify.Model()
 
