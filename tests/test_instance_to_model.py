@@ -2,13 +2,20 @@ import amplify
 import pytest
 from ommx.adapter import AdapterNotApplicableError
 from ommx import (
-    Instance,
     Constraint,
     DecisionVariable,
+    DegreeBound,
+    Equality,
+    IndicatorConstraint,
+    Instance,
+    InstanceClassMismatch,
+    Kind,
     Linear,
     OneHotConstraint,
-    Quadratic,
     Polynomial,
+    Quadratic,
+    Sense,
+    Sos1Constraint,
 )
 
 from ommx_fixstars_amplify_adapter.adapter import OMMXFixstarsAmplifyAdapter
@@ -131,6 +138,82 @@ def test_instance_to_model():
     expected_model += amplify.less_equal(w - 17, 0, label="constraintE [id: 4]")
 
     assert_amplify_model(model, expected_model)
+
+
+def test_declares_polynomial_input_class():
+    input_class = OMMXFixstarsAmplifyAdapter.INPUT_CLASS
+    assert input_class is not None
+    [clause] = input_class.clauses
+
+    assert clause.label == "fixstars-amplify-polynomial"
+    assert clause.allowed_variable_kinds == {
+        Kind.Binary,
+        Kind.Integer,
+        Kind.Continuous,
+    }
+    assert clause.objective_degree_bound == DegreeBound.unbounded()
+    assert clause.regular_constraint_degree_bounds == {
+        Equality.EqualToZero: DegreeBound.unbounded(),
+        Equality.LessThanOrEqualToZero: DegreeBound.unbounded(),
+    }
+    assert clause.indicator_constraint_degree_bounds == {}
+    assert clause.allows_one_hot
+    assert not clause.allows_sos1
+    assert clause.allowed_senses == {Sense.Minimize, Sense.Maximize}
+
+
+def test_accepts_supported_instance():
+    binary = [DecisionVariable.binary(i) for i in range(2)]
+    integer = DecisionVariable.integer(2, lower=-2, upper=2)
+    continuous = DecisionVariable.continuous(3, lower=-2, upper=2)
+    instance = Instance.from_components(
+        decision_variables=[*binary, integer, continuous],
+        objective=binary[0] + binary[1] + integer + continuous,
+        constraints={0: integer + continuous == 1, 1: integer - continuous <= 2},
+        one_hot_constraints={0: OneHotConstraint(variables=binary)},
+        sense=Sense.Minimize,
+    )
+    before = instance.to_v2_bytes()
+
+    report = OMMXFixstarsAmplifyAdapter.check_applicability(instance)
+    assert report.is_applicable
+    assert report.input_membership.matching_clauses == [
+        (0, "fixstars-amplify-polynomial")
+    ]
+    assert report.preconditions_checked
+    assert report.precondition_violations == ()
+
+    OMMXFixstarsAmplifyAdapter(instance)
+    assert instance.to_v2_bytes() == before
+
+
+def test_rejects_unsupported_constraints():
+    indicator_variable = DecisionVariable.binary(0)
+    continuous_variable = DecisionVariable.continuous(1, lower=-2, upper=2)
+    instance = Instance.from_components(
+        decision_variables=[indicator_variable, continuous_variable],
+        objective=continuous_variable,
+        constraints={},
+        indicator_constraints={
+            0: IndicatorConstraint(
+                indicator_variable=indicator_variable,
+                function=continuous_variable - 1,
+                equality=Equality.LessThanOrEqualToZero,
+            )
+        },
+        sos1_constraints={0: Sos1Constraint(variables=[continuous_variable])},
+        sense=Sense.Minimize,
+    )
+    before = instance.to_v2_bytes()
+
+    with pytest.raises(AdapterNotApplicableError) as error:
+        OMMXFixstarsAmplifyAdapter(instance)
+
+    mismatches = error.value.report.input_membership.clause_reports[0].mismatches
+    mismatch_types = {type(mismatch) for mismatch in mismatches}
+    assert InstanceClassMismatch.IndicatorConstraintsNotAllowed in mismatch_types
+    assert InstanceClassMismatch.Sos1ConstraintsNotAllowed in mismatch_types
+    assert instance.to_v2_bytes() == before
 
 
 def test_error_unsupported_variable_kind():
