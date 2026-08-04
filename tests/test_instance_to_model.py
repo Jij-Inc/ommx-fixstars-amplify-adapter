@@ -162,10 +162,11 @@ def test_declares_polynomial_input_class():
     assert clause.allowed_senses == {Sense.Minimize, Sense.Maximize}
 
 
-def test_accepts_supported_instance():
+def test_input_class_accepts_polynomial_instance():
     binary = [DecisionVariable.binary(i) for i in range(2)]
     integer = DecisionVariable.integer(2, lower=-2, upper=2)
     continuous = DecisionVariable.continuous(3, lower=-2, upper=2)
+
     instance = Instance.from_components(
         decision_variables=[*binary, integer, continuous],
         objective=binary[0] + binary[1] + integer + continuous,
@@ -187,9 +188,10 @@ def test_accepts_supported_instance():
     assert instance.to_v2_bytes() == before
 
 
-def test_rejects_unsupported_constraints():
+def test_rejects_unsupported_special_constraints_without_mutating_input():
     indicator_variable = DecisionVariable.binary(0)
     continuous_variable = DecisionVariable.continuous(1, lower=-2, upper=2)
+
     instance = Instance.from_components(
         decision_variables=[indicator_variable, continuous_variable],
         objective=continuous_variable,
@@ -216,26 +218,38 @@ def test_rejects_unsupported_constraints():
     assert instance.to_v2_bytes() == before
 
 
-def test_error_unsupported_variable_kind():
-    # Create OMMX instances with unsupported variable types
-    decision_variables = [
-        DecisionVariable.semi_integer(id=0, lower=0, upper=10, name="x")
-    ]
-
+@pytest.mark.parametrize(
+    ("variable", "kind"),
+    [
+        (DecisionVariable.semi_integer(0, lower=1, upper=3), Kind.SemiInteger),
+        (
+            DecisionVariable.semi_continuous(0, lower=1, upper=3),
+            Kind.SemiContinuous,
+        ),
+    ],
+)
+def test_rejects_unsupported_variable_kinds(variable, kind):
     constraint = Constraint(
         function=Linear(terms={0: 1.0}, constant=-5.0),
         equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
     )
 
     instance = Instance.from_components(
-        decision_variables=decision_variables,
+        decision_variables=[variable],
         objective=Linear(terms={0: 1.0}),
         constraints={0: constraint},
         sense=Instance.MINIMIZE,
     )
 
-    with pytest.raises(AdapterNotApplicableError):
+    with pytest.raises(AdapterNotApplicableError) as error:
         OMMXFixstarsAmplifyAdapter(instance)
+
+    mismatches = error.value.report.input_membership.clause_reports[0].mismatches
+    assert len(mismatches) == 1
+    mismatch = mismatches[0]
+    assert isinstance(mismatch, InstanceClassMismatch.VariableKindNotAllowed)
+    assert mismatch.kind == kind
+    assert mismatch.variable_ids == {0}
 
 
 def test_one_hot_constraint():
