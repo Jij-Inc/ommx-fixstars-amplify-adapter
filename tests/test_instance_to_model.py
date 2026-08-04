@@ -246,7 +246,7 @@ def test_one_hot_constraint():
         objective=0,
         constraints={},
         one_hot_constraints={
-            0: OneHotConstraint(variables=[0, 1, 2], name="one_hot_constraint")
+            0: OneHotConstraint(variables=[x[0], x[1], x[2]], name="one_hot_constraint")
         },
         sense=Instance.MINIMIZE,
     )
@@ -274,7 +274,7 @@ def test_regular_and_one_hot_constraints():
         objective=x[0] + 2 * x[1],
         constraints={0: 3 * x[0] + 5 * x[2] <= 1},
         one_hot_constraints={
-            0: OneHotConstraint(variables=[0, 1, 2], name="one_hot_constraint")
+            0: OneHotConstraint(variables=[x[0], x[1], x[2]], name="one_hot_constraint")
         },
         sense=Instance.MINIMIZE,
     )
@@ -307,10 +307,10 @@ def test_multiple_one_hot_constraints():
         objective=x[0] + 2 * x[3],
         constraints={},
         one_hot_constraints={
-            0: OneHotConstraint(variables=[0, 1], name="row"),
-            1: OneHotConstraint(variables=[2, 3], name="row"),
-            2: OneHotConstraint(variables=[0, 2], name="col"),
-            3: OneHotConstraint(variables=[1, 3], name="col"),
+            0: OneHotConstraint(variables=[x[0], x[1]], name="row"),
+            1: OneHotConstraint(variables=[x[2], x[3]], name="row"),
+            2: OneHotConstraint(variables=[x[0], x[2]], name="col"),
+            3: OneHotConstraint(variables=[x[1], x[3]], name="col"),
         },
         sense=Instance.MINIMIZE,
     )
