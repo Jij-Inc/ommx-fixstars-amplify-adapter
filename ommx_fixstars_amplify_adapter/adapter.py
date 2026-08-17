@@ -121,7 +121,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         """
         if amplify_token == "":
             raise OMMXFixstarsAmplifyAdapterError(
-                "No Fixstars Amplify token specificed -- cannot instantiate client"
+                "No Fixstars Amplify token specified -- cannot instantiate client"
             )
 
         _ = diagnostics
