@@ -103,6 +103,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
                 "No Fixstars Amplify token specificed -- cannot instantiate client"
             )
 
+        _ = diagnostics
         adapter = cls(ommx_instance)
 
         client = amplify.AmplifyAEClient()
