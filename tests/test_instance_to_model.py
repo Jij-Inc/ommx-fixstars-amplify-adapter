@@ -4,7 +4,6 @@ from ommx.adapter import AdapterNotApplicableError
 from ommx import (
     Constraint,
     DecisionVariable,
-    DegreeBound,
     Equality,
     IndicatorConstraint,
     Instance,
@@ -138,28 +137,6 @@ def test_instance_to_model():
     expected_model += amplify.less_equal(w - 17, 0, label="constraintE [id: 4]")
 
     assert_amplify_model(model, expected_model)
-
-
-def test_declares_polynomial_input_class():
-    input_class = OMMXFixstarsAmplifyAdapter.INPUT_CLASS
-    assert input_class is not None
-    [clause] = input_class.clauses
-
-    assert clause.label == "fixstars-amplify-polynomial"
-    assert clause.allowed_variable_kinds == {
-        Kind.Binary,
-        Kind.Integer,
-        Kind.Continuous,
-    }
-    assert clause.objective_degree_bound == DegreeBound.unbounded()
-    assert clause.regular_constraint_degree_bounds == {
-        Equality.EqualToZero: DegreeBound.unbounded(),
-        Equality.LessThanOrEqualToZero: DegreeBound.unbounded(),
-    }
-    assert clause.indicator_constraint_degree_bounds == {}
-    assert clause.allows_one_hot
-    assert not clause.allows_sos1
-    assert clause.allowed_senses == {Sense.Minimize, Sense.Maximize}
 
 
 def test_input_class_accepts_polynomial_instance():

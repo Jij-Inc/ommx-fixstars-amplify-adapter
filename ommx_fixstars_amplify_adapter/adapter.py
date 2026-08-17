@@ -231,27 +231,22 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         gen = amplify.VariableGenerator()
         for var in self.instance.used_decision_variables:
             if var.kind == DecisionVariable.BINARY:
-                amplify_var = gen.scalar(
+                self.variable_map[var.id] = gen.scalar(
                     "Binary",
                     name=_make_variable_label(var),
                 )
             elif var.kind == DecisionVariable.INTEGER:
-                amplify_var = gen.scalar(
+                self.variable_map[var.id] = gen.scalar(
                     "Integer",
                     bounds=(var.bound.lower, var.bound.upper),
                     name=_make_variable_label(var),
                 )
             elif var.kind == DecisionVariable.CONTINUOUS:
-                amplify_var = gen.scalar(
+                self.variable_map[var.id] = gen.scalar(
                     "Real",
                     bounds=(var.bound.lower, var.bound.upper),
                     name=_make_variable_label(var),
                 )
-            else:
-                raise OMMXFixstarsAmplifyAdapterError(
-                    f"Not supported decision variable kind: {var.kind}"
-                )
-            self.variable_map[var.id] = amplify_var
 
     def _set_objective(self):
         obj_poly = self._function_to_poly(self.instance.objective)
@@ -259,10 +254,6 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             self.model += obj_poly
         elif self.instance.sense == Instance.MAXIMIZE:
             self.model += -obj_poly
-        else:
-            raise OMMXFixstarsAmplifyAdapterError(
-                f"Unknown sense: {self.instance.sense}"
-            )
 
     def _set_constraints(self):
         # Handle one_hot constraints (first-class constraint type)
@@ -284,10 +275,6 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             elif constr.equality == Constraint.LESS_THAN_OR_EQUAL_TO_ZERO:
                 self.model += amplify.less_equal(
                     function_poly, 0, label=f"{constr.name} [id: {constr_id}]"
-                )
-            else:
-                raise OMMXFixstarsAmplifyAdapterError(
-                    f"Unknown equality type: {constr.equality}"
                 )
 
     def _function_to_poly(
