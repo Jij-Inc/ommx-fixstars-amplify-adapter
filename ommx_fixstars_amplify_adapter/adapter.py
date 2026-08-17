@@ -14,7 +14,10 @@ from ommx import (
     InstanceClass,
     InstanceClassClause,
     Kind,
+    PreparationPolicy,
     Sense,
+    SpecialConstraintKind,
+    SpecialConstraintPreparation,
 )
 from ommx.adapter import DiagnosticsSink, SolverAdapter
 
@@ -46,6 +49,23 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             )
         ]
     )
+
+    @classmethod
+    def recommended_preparation_policy(cls) -> PreparationPolicy:
+        """Recommend lowering unsupported special constraints before using Amplify.
+
+        Amplify accepts OneHot constraints directly, so this recommendation
+        preserves them and lowers only Indicator and SOS1 constraints. The
+        returned policy is fresh and caller-editable.
+        """
+        return PreparationPolicy(
+            special_constraints=SpecialConstraintPreparation.lower_special_constraints(
+                kinds={
+                    SpecialConstraintKind.Indicator,
+                    SpecialConstraintKind.Sos1,
+                }
+            )
+        )
 
     def __init__(self, ommx_instance: Instance):
         """
