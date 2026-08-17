@@ -53,6 +53,29 @@ solution = OMMXFixstarsAmplifyAdapter.solve(ommx_instance, amplify_token=token)
 print(solution.decision_variables_df())
 ```
 
+### Preparing an Instance
+
+Direct adapter calls are strict and do not mutate an instance to make it
+applicable. OMMX 3.0.0b3 adds an explicit preparation workflow: start from the
+adapter's recommendation, edit it if needed, and apply it to the same instance
+before solving.
+
+```python
+input_class = OMMXFixstarsAmplifyAdapter.INPUT_CLASS
+assert input_class is not None
+policy = OMMXFixstarsAmplifyAdapter.recommended_preparation_policy()
+
+ommx_instance.prepare(input_class, policy)
+solution = OMMXFixstarsAmplifyAdapter.solve(
+    ommx_instance,
+    amplify_token=token,
+)
+```
+
+Fixstars Amplify accepts OneHot constraints directly. The recommended policy
+therefore preserves OneHot constraints and lowers only Indicator and SOS1
+constraints to regular constraints.
+
 ## Solve problems formulated in Fixstars Amplify SDK with other solvers
 
 The `ommx-fixstars-amplify-adapter` allows problems formulated in Fixstars Amplify SDK to be solved in other solvers.

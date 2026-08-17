@@ -98,6 +98,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         :param ommx_instance: The ommx.Instance to solve.
         :param amplify_token: Token for instantiating the Fixstars Amplify AE Client, obtained from your Fixstars Amplify account.
         :param timeout: Timeout passed to the client.
+        :param diagnostics: Reserved diagnostics sink; currently unused.
 
         Example:
         =========
