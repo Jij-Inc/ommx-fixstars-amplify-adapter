@@ -26,6 +26,11 @@ from .exception import OMMXFixstarsAmplifyAdapterError
 
 ABSOLUTE_TOLERANCE = 1e-6
 
+_AMPLIFY_VARIABLE_TYPES: dict[Kind, amplify.VariableType] = {
+    Kind.Binary: amplify.VariableType.Binary,
+    Kind.Integer: amplify.VariableType.Integer,
+    Kind.Continuous: amplify.VariableType.Real,
+}
 _POLYNOMIAL_REGULAR_CONSTRAINT_DEGREE_BOUNDS = {
     Equality.EqualToZero: DegreeBound.unbounded(),
     Equality.LessThanOrEqualToZero: DegreeBound.unbounded(),
@@ -37,11 +42,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         [
             InstanceClassClause(
                 label="fixstars-amplify-polynomial",
-                allowed_variable_kinds={
-                    Kind.Binary,
-                    Kind.Integer,
-                    Kind.Continuous,
-                },
+                allowed_variable_kinds=set(_AMPLIFY_VARIABLE_TYPES),
                 objective_degree_bound=DegreeBound.unbounded(),
                 regular_constraint_degree_bounds=(
                     _POLYNOMIAL_REGULAR_CONSTRAINT_DEGREE_BOUNDS
@@ -232,20 +233,22 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         self.variable_map: dict[int, amplify.Poly] = {}
         gen = amplify.VariableGenerator()
         for var in self.instance.used_decision_variables:
-            if var.kind == DecisionVariable.BINARY:
+            kind = Kind.from_pb(var.kind)
+            variable_type = _AMPLIFY_VARIABLE_TYPES[kind]
+            if kind == Kind.Binary:
                 self.variable_map[var.id] = gen.scalar(
-                    "Binary",
+                    variable_type,
                     name=_make_variable_label(var),
                 )
-            elif var.kind == DecisionVariable.INTEGER:
+            elif kind == Kind.Integer:
                 self.variable_map[var.id] = gen.scalar(
-                    "Integer",
+                    variable_type,
                     bounds=(var.bound.lower, var.bound.upper),
                     name=_make_variable_label(var),
                 )
-            elif var.kind == DecisionVariable.CONTINUOUS:
+            elif kind == Kind.Continuous:
                 self.variable_map[var.id] = gen.scalar(
-                    "Real",
+                    variable_type,
                     bounds=(var.bound.lower, var.bound.upper),
                     name=_make_variable_label(var),
                 )

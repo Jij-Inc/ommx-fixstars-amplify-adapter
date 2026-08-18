@@ -116,15 +116,7 @@ class OMMXInstanceBuilder:
             objective = self.model.objective
         return self._poly_to_ommx(objective)
 
-    def constraints(self) -> typing.Dict[int, Constraint]:
-        constraints, _ = self._classify_constraints()
-        return constraints
-
-    def one_hot_constraints(self) -> typing.Dict[int, OneHotConstraint]:
-        _, one_hot_constraints = self._classify_constraints()
-        return one_hot_constraints
-
-    def _classify_constraints(
+    def _convert_constraints(
         self,
     ) -> typing.Tuple[typing.Dict[int, Constraint], typing.Dict[int, OneHotConstraint]]:
         constraints = []
@@ -152,6 +144,8 @@ class OMMXInstanceBuilder:
                     poly=poly,
                     rhs=constraint.conditional[2],
                 )
+                # Promote the standard `sum(binary variables) == 1` form to OMMX
+                # OneHotConstraint.
                 if variables is not None:
                     one_hot_constraints.append(
                         OneHotConstraint(
@@ -282,7 +276,7 @@ class OMMXInstanceBuilder:
                 sense=self.sense(),
             )
         else:
-            constraints, one_hot_constraints = self._classify_constraints()
+            constraints, one_hot_constraints = self._convert_constraints()
             return Instance.from_components(
                 decision_variables=self.decision_variables(),
                 objective=self.objective(),
