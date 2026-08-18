@@ -18,6 +18,7 @@ from ommx import (
 )
 
 from ommx_fixstars_amplify_adapter.adapter import OMMXFixstarsAmplifyAdapter
+from ommx_fixstars_amplify_adapter.exception import OMMXFixstarsAmplifyAdapterError
 from conftest import assert_amplify_model
 
 
@@ -137,6 +138,62 @@ def test_instance_to_model():
     expected_model += amplify.less_equal(w - 17, 0, label="constraintE [id: 4]")
 
     assert_amplify_model(model, expected_model)
+
+
+@pytest.mark.parametrize(
+    ("equality", "constant"),
+    [
+        (Equality.EqualToZero, 0.0),
+        (Equality.LessThanOrEqualToZero, -1.0),
+    ],
+)
+def test_skips_feasible_constant_constraint(
+    equality: Equality, constant: float
+) -> None:
+    instance = Instance.from_components(
+        decision_variables=[],
+        objective=0,
+        constraints={
+            0: Constraint(
+                function=constant,
+                equality=equality,
+            )
+        },
+        sense=Sense.Minimize,
+    )
+
+    adapter = OMMXFixstarsAmplifyAdapter(instance)
+
+    assert len(adapter.solver_input.constraints) == 0
+
+
+@pytest.mark.parametrize(
+    ("equality", "constant"),
+    [
+        (Equality.EqualToZero, 1.0),
+        (Equality.LessThanOrEqualToZero, 1.0),
+    ],
+)
+def test_rejects_infeasible_constant_constraint(
+    equality: Equality, constant: float
+) -> None:
+    instance = Instance.from_components(
+        decision_variables=[],
+        objective=0,
+        constraints={
+            0: Constraint(
+                function=constant,
+                equality=equality,
+            )
+        },
+        sense=Sense.Minimize,
+    )
+
+    with pytest.raises(
+        OMMXFixstarsAmplifyAdapterError,
+        match="Infeasible constant constraint was found: id 0",
+    ):
+        OMMXFixstarsAmplifyAdapter(instance)
 
 
 def test_input_class_accepts_polynomial_instance():

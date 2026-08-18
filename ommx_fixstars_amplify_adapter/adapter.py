@@ -24,6 +24,8 @@ from ommx.adapter import DiagnosticsSink, SolverAdapter
 from .exception import OMMXFixstarsAmplifyAdapterError
 
 
+ABSOLUTE_TOLERANCE = 1e-6
+
 _POLYNOMIAL_REGULAR_CONSTRAINT_DEGREE_BOUNDS = {
     Equality.EqualToZero: DegreeBound.unbounded(),
     Equality.LessThanOrEqualToZero: DegreeBound.unbounded(),
@@ -256,7 +258,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             self.model += -obj_poly
 
     def _set_constraints(self):
-        # Handle one_hot constraints (first-class constraint type)
+        # Handle one_hot constraints
         for one_hot_id, one_hot in self.instance.one_hot_constraints.items():
             # convert one_hot constraint to polynomial
             one_hot_poly = amplify.sum(
@@ -267,6 +269,13 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             )
 
         for constr_id, constr in self.instance.constraints.items():
+            if constr.function.degree() == 0:
+                if constr.evaluate({}, atol=ABSOLUTE_TOLERANCE).feasible:
+                    continue
+                raise OMMXFixstarsAmplifyAdapterError(
+                    f"Infeasible constant constraint was found: id {constr_id}"
+                )
+
             function_poly = self._function_to_poly(constr.function)
             if constr.equality == Constraint.EQUAL_TO_ZERO:
                 self.model += amplify.equal_to(
