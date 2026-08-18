@@ -168,8 +168,8 @@ def test_model_to_instance_regular_and_one_hot_constraints():
     x = [gen.scalar("Binary", name=f"x_{i}") for i in range(3)]
     model = amplify.Model()
     model += x[0] + 2 * x[1]
+    model += amplify.less_equal(3 * x[0] + 5 * x[2], 1, label="regular_constraint")
     model += amplify.one_hot(x[0] + x[1] + x[2], label="one_hot_constraint")
-    model += amplify.less_equal(3 * x[0] + 5 * x[2], 1, label="capacity")
 
     ommx_instance = model_to_instance(model)
 
@@ -186,7 +186,7 @@ def test_model_to_instance_regular_and_one_hot_constraints():
         (2,): 5.0,
         (): -1.0,
     }
-    assert constraint.name == "capacity"
+    assert constraint.name == "regular_constraint"
 
 
 def test_model_to_instance_does_not_detect_non_one_hot_equalities():
@@ -195,7 +195,7 @@ def test_model_to_instance_does_not_detect_non_one_hot_equalities():
     y = gen.scalar("Binary", name="y")
     z = gen.scalar("Integer", name="z")
     model = amplify.Model()
-    model += amplify.equal_to(x + 2 * y, 1, label="weighted_binary_sum")
+    model += amplify.equal_to(x + 2 * y, 1, label="binary_sum")
     model += amplify.equal_to(x + z, 1, label="mixed_variable_sum")
     model += amplify.equal_to(x + y, 0, label="wrong_rhs")
 
@@ -203,7 +203,7 @@ def test_model_to_instance_does_not_detect_non_one_hot_equalities():
 
     assert len(ommx_instance.one_hot_constraints) == 0
     assert len(ommx_instance.constraints) == 3
-    assert ommx_instance.get_constraint_by_id(0).name == "weighted_binary_sum"
+    assert ommx_instance.get_constraint_by_id(0).name == "binary_sum"
     assert ommx_instance.get_constraint_by_id(1).name == "mixed_variable_sum"
     assert ommx_instance.get_constraint_by_id(2).name == "wrong_rhs"
 
