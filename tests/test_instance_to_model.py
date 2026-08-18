@@ -253,23 +253,23 @@ def test_rejects_unsupported_special_constraints_without_mutating_input():
 
 
 @pytest.mark.parametrize(
-    ("variable", "kind"),
+    ("decision_variable", "kind"),
     [
-        (DecisionVariable.semi_integer(0, lower=1, upper=3), Kind.SemiInteger),
+        ([DecisionVariable.semi_integer(0, lower=1, upper=3)], Kind.SemiInteger),
         (
-            DecisionVariable.semi_continuous(0, lower=1, upper=3),
+            [DecisionVariable.semi_continuous(0, lower=1, upper=3)],
             Kind.SemiContinuous,
         ),
     ],
 )
-def test_rejects_unsupported_variable_kinds(variable, kind):
+def test_rejects_unsupported_variable_kinds(decision_variable, kind):
     constraint = Constraint(
         function=Linear(terms={0: 1.0}, constant=-5.0),
         equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
     )
 
     instance = Instance.from_components(
-        decision_variables=[variable],
+        decision_variables=decision_variable,
         objective=Linear(terms={0: 1.0}),
         constraints={0: constraint},
         sense=Instance.MINIMIZE,
