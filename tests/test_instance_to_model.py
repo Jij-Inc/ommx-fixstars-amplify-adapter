@@ -1,17 +1,24 @@
 import amplify
 import pytest
+from ommx.adapter import AdapterNotApplicableError
 from ommx import (
-    Instance,
     Constraint,
     DecisionVariable,
+    Equality,
+    IndicatorConstraint,
+    Instance,
+    InstanceClassMismatch,
+    Kind,
     Linear,
     OneHotConstraint,
-    Quadratic,
     Polynomial,
+    Quadratic,
+    Sense,
+    Sos1Constraint,
 )
 
-from ommx_fixstars_amplify_adapter.exception import OMMXFixstarsAmplifyAdapterError
 from ommx_fixstars_amplify_adapter.adapter import OMMXFixstarsAmplifyAdapter
+from ommx_fixstars_amplify_adapter.exception import OMMXFixstarsAmplifyAdapterError
 from conftest import assert_amplify_model
 
 
@@ -133,26 +140,150 @@ def test_instance_to_model():
     assert_amplify_model(model, expected_model)
 
 
-def test_error_unsupported_variable_kind():
-    # Create OMMX instances with unsupported variable types
-    decision_variables = [
-        DecisionVariable.semi_integer(id=0, lower=0, upper=10, name="x")
-    ]
+@pytest.mark.parametrize(
+    ("equality", "constant"),
+    [
+        (Equality.EqualToZero, 0.0),
+        (Equality.LessThanOrEqualToZero, -1.0),
+    ],
+)
+def test_skips_feasible_constant_constraint(
+    equality: Equality, constant: float
+) -> None:
+    instance = Instance.from_components(
+        decision_variables=[],
+        objective=0,
+        constraints={
+            0: Constraint(
+                function=constant,
+                equality=equality,
+            )
+        },
+        sense=Sense.Minimize,
+    )
 
+    adapter = OMMXFixstarsAmplifyAdapter(instance)
+
+    assert len(adapter.solver_input.constraints) == 0
+
+
+@pytest.mark.parametrize(
+    ("equality", "constant"),
+    [
+        (Equality.EqualToZero, 1.0),
+        (Equality.LessThanOrEqualToZero, 1.0),
+    ],
+)
+def test_rejects_infeasible_constant_constraint(
+    equality: Equality, constant: float
+) -> None:
+    instance = Instance.from_components(
+        decision_variables=[],
+        objective=0,
+        constraints={
+            0: Constraint(
+                function=constant,
+                equality=equality,
+            )
+        },
+        sense=Sense.Minimize,
+    )
+
+    with pytest.raises(
+        OMMXFixstarsAmplifyAdapterError,
+        match="Infeasible constant constraint was found: id 0",
+    ):
+        OMMXFixstarsAmplifyAdapter(instance)
+
+
+def test_input_class_accepts_polynomial_instance():
+    binary = [DecisionVariable.binary(i) for i in range(2)]
+    integer = DecisionVariable.integer(2, lower=-2, upper=2)
+    continuous = DecisionVariable.continuous(3, lower=-2, upper=2)
+
+    instance = Instance.from_components(
+        decision_variables=[*binary, integer, continuous],
+        objective=binary[0] + binary[1] + integer + continuous,
+        constraints={0: integer + continuous == 1, 1: integer - continuous <= 2},
+        one_hot_constraints={0: OneHotConstraint(variables=binary)},
+        sense=Sense.Minimize,
+    )
+    before = instance.to_v2_bytes()
+
+    report = OMMXFixstarsAmplifyAdapter.check_applicability(instance)
+    assert report.is_applicable
+    assert report.input_membership.matching_clauses == [
+        (0, "fixstars-amplify-polynomial")
+    ]
+    assert report.preconditions_checked
+    assert report.precondition_violations == ()
+
+    OMMXFixstarsAmplifyAdapter(instance)
+    assert instance.to_v2_bytes() == before
+
+
+def test_rejects_unsupported_special_constraints_without_mutating_input():
+    indicator_variable = DecisionVariable.binary(0)
+    continuous_variable = DecisionVariable.continuous(1, lower=-2, upper=2)
+
+    instance = Instance.from_components(
+        decision_variables=[indicator_variable, continuous_variable],
+        objective=continuous_variable,
+        constraints={},
+        indicator_constraints={
+            0: IndicatorConstraint(
+                indicator_variable=indicator_variable,
+                function=continuous_variable - 1,
+                equality=Equality.LessThanOrEqualToZero,
+            )
+        },
+        sos1_constraints={0: Sos1Constraint(variables=[continuous_variable])},
+        sense=Sense.Minimize,
+    )
+    before = instance.to_v2_bytes()
+
+    with pytest.raises(AdapterNotApplicableError) as error:
+        OMMXFixstarsAmplifyAdapter(instance)
+
+    mismatches = error.value.report.input_membership.clause_reports[0].mismatches
+    mismatch_types = {type(mismatch) for mismatch in mismatches}
+    assert InstanceClassMismatch.IndicatorConstraintsNotAllowed in mismatch_types
+    assert InstanceClassMismatch.Sos1ConstraintsNotAllowed in mismatch_types
+    assert instance.to_v2_bytes() == before
+
+
+@pytest.mark.parametrize(
+    ("decision_variable", "kind"),
+    [
+        ([DecisionVariable.semi_integer(0, lower=1, upper=3)], Kind.SemiInteger),
+        (
+            [DecisionVariable.semi_continuous(0, lower=1, upper=3)],
+            Kind.SemiContinuous,
+        ),
+    ],
+)
+def test_rejects_unsupported_variable_kinds(decision_variable, kind):
     constraint = Constraint(
         function=Linear(terms={0: 1.0}, constant=-5.0),
         equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
     )
 
     instance = Instance.from_components(
-        decision_variables=decision_variables,
+        decision_variables=decision_variable,
         objective=Linear(terms={0: 1.0}),
         constraints={0: constraint},
         sense=Instance.MINIMIZE,
     )
 
-    with pytest.raises(OMMXFixstarsAmplifyAdapterError):
+    with pytest.raises(AdapterNotApplicableError) as error:
         OMMXFixstarsAmplifyAdapter(instance)
+
+    mismatches = error.value.report.input_membership.clause_reports[0].mismatches
+    assert len(mismatches) == 1
+    mismatch = mismatches[0]
+    assert isinstance(mismatch, InstanceClassMismatch.VariableKindNotAllowed)
+    assert mismatch.kind == kind
+    assert mismatch.variable_ids == {0}
 
 
 def test_one_hot_constraint():
@@ -163,7 +294,7 @@ def test_one_hot_constraint():
         objective=0,
         constraints={},
         one_hot_constraints={
-            0: OneHotConstraint(variables=[0, 1, 2], name="one_hot_constraint")
+            0: OneHotConstraint(variables=[x[0], x[1], x[2]], name="one_hot_constraint")
         },
         sense=Instance.MINIMIZE,
     )
@@ -191,7 +322,7 @@ def test_regular_and_one_hot_constraints():
         objective=x[0] + 2 * x[1],
         constraints={0: 3 * x[0] + 5 * x[2] <= 1},
         one_hot_constraints={
-            0: OneHotConstraint(variables=[0, 1, 2], name="one_hot_constraint")
+            0: OneHotConstraint(variables=[x[0], x[1], x[2]], name="one_hot_constraint")
         },
         sense=Instance.MINIMIZE,
     )
@@ -224,10 +355,10 @@ def test_multiple_one_hot_constraints():
         objective=x[0] + 2 * x[3],
         constraints={},
         one_hot_constraints={
-            0: OneHotConstraint(variables=[0, 1], name="row"),
-            1: OneHotConstraint(variables=[2, 3], name="row"),
-            2: OneHotConstraint(variables=[0, 2], name="col"),
-            3: OneHotConstraint(variables=[1, 3], name="col"),
+            0: OneHotConstraint(variables=[x[0], x[1]], name="row"),
+            1: OneHotConstraint(variables=[x[2], x[3]], name="row"),
+            2: OneHotConstraint(variables=[x[0], x[2]], name="col"),
+            3: OneHotConstraint(variables=[x[1], x[3]], name="col"),
         },
         sense=Instance.MINIMIZE,
     )

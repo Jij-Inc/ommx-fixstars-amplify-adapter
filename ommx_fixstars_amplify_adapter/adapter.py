@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 import amplify
 
 from ommx import (
@@ -7,21 +9,72 @@ from ommx import (
     Constraint,
     Function,
     State,
-    AdditionalCapability,
+    DegreeBound,
+    Equality,
+    InstanceClass,
+    InstanceClassClause,
+    Kind,
+    PreparationPolicy,
+    Sense,
+    SpecialConstraintKind,
+    SpecialConstraintPreparation,
 )
 from ommx.adapter import DiagnosticsSink, SolverAdapter
 
 from .exception import OMMXFixstarsAmplifyAdapterError
 
 
+ABSOLUTE_TOLERANCE = 1e-6
+
+_AMPLIFY_VARIABLE_TYPES: dict[Kind, amplify.VariableType] = {
+    Kind.Binary: amplify.VariableType.Binary,
+    Kind.Integer: amplify.VariableType.Integer,
+    Kind.Continuous: amplify.VariableType.Real,
+}
+_POLYNOMIAL_REGULAR_CONSTRAINT_DEGREE_BOUNDS = {
+    Equality.EqualToZero: DegreeBound.unbounded(),
+    Equality.LessThanOrEqualToZero: DegreeBound.unbounded(),
+}
+
+
 class OMMXFixstarsAmplifyAdapter(SolverAdapter):
-    ADDITIONAL_CAPABILITIES = frozenset({AdditionalCapability.OneHot})
+    INPUT_CLASS: ClassVar[InstanceClass | None] = InstanceClass(
+        [
+            InstanceClassClause(
+                label="fixstars-amplify-polynomial",
+                allowed_variable_kinds=set(_AMPLIFY_VARIABLE_TYPES),
+                objective_degree_bound=DegreeBound.unbounded(),
+                regular_constraint_degree_bounds=(
+                    _POLYNOMIAL_REGULAR_CONSTRAINT_DEGREE_BOUNDS
+                ),
+                allows_one_hot=True,
+                allowed_senses={Sense.Minimize, Sense.Maximize},
+            )
+        ]
+    )
+
+    @classmethod
+    def recommended_preparation_policy(cls) -> PreparationPolicy:
+        """Recommend lowering unsupported special constraints before using Amplify.
+
+        Amplify accepts OneHot constraints directly, so this recommendation
+        preserves them and lowers only Indicator and SOS1 constraints. The
+        returned policy is fresh and caller-editable.
+        """
+        return PreparationPolicy(
+            special_constraints=SpecialConstraintPreparation.lower_special_constraints(
+                kinds={
+                    SpecialConstraintKind.Indicator,
+                    SpecialConstraintKind.Sos1,
+                }
+            )
+        )
 
     def __init__(self, ommx_instance: Instance):
         """
         :param ommx_instance: The ommx.Instance to solve.
         """
-        super().__init__(ommx_instance)
+        self.require_applicable(ommx_instance)
         self.instance = ommx_instance
         self.model = amplify.Model()
 
@@ -48,6 +101,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         :param ommx_instance: The ommx.Instance to solve.
         :param amplify_token: Token for instantiating the Fixstars Amplify AE Client, obtained from your Fixstars Amplify account.
         :param timeout: Timeout passed to the client.
+        :param diagnostics: Reserved diagnostics sink; currently unused.
 
         Example:
         =========
@@ -70,9 +124,10 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         """
         if amplify_token == "":
             raise OMMXFixstarsAmplifyAdapterError(
-                "No Fixstars Amplify token specificed -- cannot instantiate client"
+                "No Fixstars Amplify token specified -- cannot instantiate client"
             )
 
+        _ = diagnostics
         adapter = cls(ommx_instance)
 
         client = amplify.AmplifyAEClient()
@@ -178,28 +233,25 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         self.variable_map: dict[int, amplify.Poly] = {}
         gen = amplify.VariableGenerator()
         for var in self.instance.used_decision_variables:
-            if var.kind == DecisionVariable.BINARY:
-                amplify_var = gen.scalar(
-                    "Binary",
+            kind = Kind.from_pb(var.kind)
+            variable_type = _AMPLIFY_VARIABLE_TYPES[kind]
+            if kind == Kind.Binary:
+                self.variable_map[var.id] = gen.scalar(
+                    variable_type,
                     name=_make_variable_label(var),
                 )
-            elif var.kind == DecisionVariable.INTEGER:
-                amplify_var = gen.scalar(
-                    "Integer",
+            elif kind == Kind.Integer:
+                self.variable_map[var.id] = gen.scalar(
+                    variable_type,
                     bounds=(var.bound.lower, var.bound.upper),
                     name=_make_variable_label(var),
                 )
-            elif var.kind == DecisionVariable.CONTINUOUS:
-                amplify_var = gen.scalar(
-                    "Real",
+            elif kind == Kind.Continuous:
+                self.variable_map[var.id] = gen.scalar(
+                    variable_type,
                     bounds=(var.bound.lower, var.bound.upper),
                     name=_make_variable_label(var),
                 )
-            else:
-                raise OMMXFixstarsAmplifyAdapterError(
-                    f"Not supported decision variable kind: {var.kind}"
-                )
-            self.variable_map[var.id] = amplify_var
 
     def _set_objective(self):
         obj_poly = self._function_to_poly(self.instance.objective)
@@ -207,13 +259,9 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             self.model += obj_poly
         elif self.instance.sense == Instance.MAXIMIZE:
             self.model += -obj_poly
-        else:
-            raise OMMXFixstarsAmplifyAdapterError(
-                f"Unknown sense: {self.instance.sense}"
-            )
 
     def _set_constraints(self):
-        # Handle one_hot constraints (first-class constraint type)
+        # Handle one_hot constraints
         for one_hot_id, one_hot in self.instance.one_hot_constraints.items():
             # convert one_hot constraint to polynomial
             one_hot_poly = amplify.sum(
@@ -224,6 +272,13 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             )
 
         for constr_id, constr in self.instance.constraints.items():
+            if constr.function.degree() == 0:
+                if constr.evaluate({}, atol=ABSOLUTE_TOLERANCE).feasible:
+                    continue
+                raise OMMXFixstarsAmplifyAdapterError(
+                    f"Infeasible constant constraint was found: id {constr_id}"
+                )
+
             function_poly = self._function_to_poly(constr.function)
             if constr.equality == Constraint.EQUAL_TO_ZERO:
                 self.model += amplify.equal_to(
@@ -232,10 +287,6 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             elif constr.equality == Constraint.LESS_THAN_OR_EQUAL_TO_ZERO:
                 self.model += amplify.less_equal(
                     function_poly, 0, label=f"{constr.name} [id: {constr_id}]"
-                )
-            else:
-                raise OMMXFixstarsAmplifyAdapterError(
-                    f"Unknown equality type: {constr.equality}"
                 )
 
     def _function_to_poly(

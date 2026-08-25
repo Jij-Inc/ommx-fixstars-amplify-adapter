@@ -229,7 +229,7 @@ name = "exceptiongroup"
 version = "1.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/0b/9f/a65090624ecf468cdca03533906e7c69ed7588582240cfe7cc9e770b50eb/exceptiongroup-1.3.0.tar.gz", hash = "sha256:b241f5885f560bc56a59ee63ca4c6a8bfa46ae4ad651af316d4e81817bb9fd88", size = 29749 }
 wheels = [
@@ -691,7 +691,7 @@ wheels = [
 
 [[package]]
 name = "ommx"
-version = "3.0.0a8"
+version = "3.0.0b3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ipython", version = "8.39.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -708,13 +708,13 @@ dependencies = [
     { name = "typing-extensions" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/14/13/d2571f9094f332c747caf85c9d41ad4d5875afc37f9956d4a2358f614e4b/ommx-3.0.0a8-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:950fad4644d64d2ae0c6384b6efe14890fb8f5a3bec0fa4dc0aa978cd7598a86", size = 7503696 },
-    { url = "https://files.pythonhosted.org/packages/02/bb/8158fee9e9f88dae2ef9bc57cda87e8d744d23bef37a9f8191f90ec1fe19/ommx-3.0.0a8-cp310-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:8229bb1e66408e99f2b306f2f7c085b2e03f6b55c8d0ca8912f08ebafcbf1f8d", size = 7543856 },
-    { url = "https://files.pythonhosted.org/packages/99/e0/be701d4b21a389de0fbba5086908f9e934e12e0c8a65d2d3cda6d0a5fea6/ommx-3.0.0a8-cp310-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:dad2154bb8ec7b1d4d1df0a7e2b3469fe4d4fd03de975a19e94fad4f0c2b80c7", size = 8413879 },
-    { url = "https://files.pythonhosted.org/packages/79/37/eb24c83c7300a0d4231e9b711cc0b13d7c4901aad2c84e389c1fe3ac4bc6/ommx-3.0.0a8-cp310-abi3-win_amd64.whl", hash = "sha256:8ec84043e7786ffa2955fb9b973c17c4912badda70f1176fa34a29c56427b69c", size = 7959349 },
-    { url = "https://files.pythonhosted.org/packages/67/02/e0c96a7a25fcd535476d180798fa4060547c22fb79b37729b328ae2c5791/ommx-3.0.0a8-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:a7a7f051f87f11e4fd0ab7b4d640111174e3f2c7afb61b9f6f1878152b77c124", size = 7506676 },
-    { url = "https://files.pythonhosted.org/packages/70/bf/bbeaf5e0d05e745a3a6d838d49b0e3ec255afeb08c306c7cc14b4f01c25d/ommx-3.0.0a8-cp314-cp314t-manylinux_2_28_aarch64.whl", hash = "sha256:c3afb62f0f40ab5e2a07427e4a92805945b3159a68d317eab5f28bd3f2b26d94", size = 7547933 },
-    { url = "https://files.pythonhosted.org/packages/d8/cc/77a41adc0bfcf3c6ac0c0f6292b41c6cb48b27f7c2006aa0e71ae2196778/ommx-3.0.0a8-cp314-cp314t-manylinux_2_28_x86_64.whl", hash = "sha256:f27b14a1a0c9340be7cc01e1d49279cc53ef7f2ad4578657069b417ff6284a46", size = 8422247 },
+    { url = "https://files.pythonhosted.org/packages/09/a5/eb9a1de5133e94bb78e2cc1764191e7ab19afa245a69be6435607f50f0da/ommx-3.0.0b3-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:9d9a9c086a98360e1f97a5fc6088f4aa150cbfdcead7da5a971750d62a2ac903", size = 8190482 },
+    { url = "https://files.pythonhosted.org/packages/8e/a5/f9857df00f994f5394c4ac2d7b21f8e03f61ee91a2990b1ac8b7b457b017/ommx-3.0.0b3-cp310-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:83e77427a88a10f85c6995da671611730de55928379162a801ca22da9cbf627d", size = 8303136 },
+    { url = "https://files.pythonhosted.org/packages/ac/5f/75106f1ac91fcdb86b94d1a46c4f85d2364d06d7aa1bf47524c74c991451/ommx-3.0.0b3-cp310-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:86764376a8230c9a1d2a6606440fcc06e25b6433fc73f40030da3d1901253c8e", size = 9256494 },
+    { url = "https://files.pythonhosted.org/packages/09/d7/afd6eb94b721bc77f89c1ff4c5e8f172f64d1c48cd4ede94d94bce89a97a/ommx-3.0.0b3-cp310-abi3-win_amd64.whl", hash = "sha256:0b6f0fdb131be16e747c33ddd89615d63ff1f6f293e1109a6b6b673960842cdc", size = 8660824 },
+    { url = "https://files.pythonhosted.org/packages/6b/e4/8b09f6682bf0a65143b7a583f1e0c28dbbf4ba1da94acfd79bd3ba517da4/ommx-3.0.0b3-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:2d84dbd4e2c99ec6f57d2fbf01564b7af159a11b304d38a0e1c136c9918d3cc8", size = 8202901 },
+    { url = "https://files.pythonhosted.org/packages/77/49/89c89d511a761fdf696d93df4a3565e4d5a8293f02307b21df3787c17707/ommx-3.0.0b3-cp314-cp314t-manylinux_2_28_aarch64.whl", hash = "sha256:ad7d9e66311f3c270febaa16c023bd212091b3fe228932a01e4e971cf1caf010", size = 8293837 },
+    { url = "https://files.pythonhosted.org/packages/19/2e/285b4817d5e2771e3a21137879fb8e8f82cabc4e81f5b6b789df5be3c8dc/ommx-3.0.0b3-cp314-cp314t-manylinux_2_28_x86_64.whl", hash = "sha256:deac5d5c6be6c35c78ad55cb9875046812cbfeb9e35ca7f03ad199ff28c21334", size = 9258040 },
 ]
 
 [[package]]
@@ -740,7 +740,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "amplify", specifier = ">=1.2.0,<2.0.0" },
-    { name = "ommx", specifier = ">=3.0.0a8,<4.0.0" },
+    { name = "ommx", specifier = ">=3.0.0b3,<4.0.0" },
     { name = "pyright", marker = "extra == 'dev'" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "ruff", marker = "extra == 'dev'" },
