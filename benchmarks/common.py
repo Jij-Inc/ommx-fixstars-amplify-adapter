@@ -6,10 +6,6 @@ from importlib.metadata import version
 from typing import Any
 
 import amplify
-from ommx import Instance
-
-from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
-
 from instance import (
     build_assignment_instance,
     build_blending_instance,
@@ -23,6 +19,9 @@ from instance import (
     build_tsp_instance,
     build_unit_commitment_instance,
 )
+from ommx import Instance
+
+from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
 
 INSTANCE_BUILDERS = {
     "knapsack": build_knapsack_instance,
@@ -40,6 +39,7 @@ PREPARATION_INSTANCE_NAME = "one-hot-preparation"
 INSTANCE_NAMES = (*INSTANCE_BUILDERS, PREPARATION_INSTANCE_NAME)
 FORMULATIONS = ("regular", "one-hot")
 SPECIAL_CONSTRAINT_CASES = ("none", "indicator", "sos1", "indicator-sos1")
+PREPARATIONS = ("none", "recommended")
 
 PACKAGE_VERSIONS = (
     version("ommx"),
@@ -62,6 +62,7 @@ def build_instance(
     seed: int,
     formulation: str,
     special_constraints: str = "none",
+    preparation: str = "none",
 ) -> Instance:
     """Select and build a benchmark Instance."""
     if name == PREPARATION_INSTANCE_NAME:
@@ -70,16 +71,17 @@ def build_instance(
             seed,
             formulation,
             special_constraints,
+            preparation,
         )
     if special_constraints != "none":
         raise ValueError(
             "Special constraints are available only for one-hot-preparation"
         )
+    if preparation != "none":
+        raise ValueError(
+            "Preparation is available only for one-hot-preparation special constraints"
+        )
     return INSTANCE_BUILDERS[name](size, seed, formulation)
-
-
-def preparation_name(special_constraints: str) -> str:
-    return "none" if special_constraints == "none" else "recommended"
 
 
 def _prepare_instance(instance: Instance) -> Instance:
@@ -99,11 +101,15 @@ def make_benchmark_operation(
     instance: Instance,
     solver_time_limit_ms: int,
     special_constraints: str,
+    preparation: str,
 ) -> BenchmarkOperation:
     """Prepare setup and measured call for a benchmark operation."""
     if operation == "prepare":
-        if special_constraints == "none":
-            raise ValueError("prepare requires Indicator and/or SOS1 constraints")
+        if special_constraints == "none" or preparation != "recommended":
+            raise ValueError(
+                "prepare requires Indicator and/or SOS1 constraints with "
+                "recommended preparation"
+            )
         input_class = OMMXFixstarsAmplifyAdapter.INPUT_CLASS
         if input_class is None:
             raise RuntimeError("The adapter does not declare INPUT_CLASS")
@@ -122,7 +128,7 @@ def make_benchmark_operation(
         return BenchmarkOperation(setup=setup_preparation, run=run_preparation)
 
     adapter_instance = (
-        _prepare_instance(instance) if special_constraints != "none" else instance
+        _prepare_instance(instance) if preparation == "recommended" else instance
     )
     if operation == "instance-to-model":
         return BenchmarkOperation(

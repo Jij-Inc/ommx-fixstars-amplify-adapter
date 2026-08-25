@@ -37,23 +37,26 @@ Adapterの `INPUT_CLASS` はOneHotを直接受け取るため、後者は `ampli
 ### Preparation
 
 `one-hot-preparation` は、Preparation性能を測定するための専用Instanceです。
-`--special-constraints` で次のケースを選びます。
+`--special-constraints` で制約family、`--preparation` でdirect/preparedを選びます。
 
-| Case | Source | Preparation後 |
+| Case | `preparation=none` | `preparation=recommended` のsource |
 | --- | --- | --- |
-| `none` | OneHot | Preparationなし |
-| `indicator` | OneHot + Indicator | OneHotを保持し、Indicatorを通常制約へlower |
-| `sos1` | OneHot + SOS1 | OneHotを保持し、SOS1を通常制約へlower |
-| `indicator-sos1` | OneHot + Indicator + SOS1 | OneHotを保持し、Indicator/SOS1を通常制約へlower |
+| `none` | OneHotのみ | 選択不可 |
+| `indicator` | Indicator lowering済み通常制約 | OneHot + Indicator |
+| `sos1` | SOS1 lowering済み通常制約 | OneHot + SOS1 |
+| `indicator-sos1` | lowering済み通常制約 | 前半グループにIndicator、後半グループにSOS1 |
 
-IndicatorとSOS1は同じOneHotグループから導かれる冗長制約なので、4ケースの実行可能領域と最適値は同一です。
+特殊制約を含む各caseは、direct/preparedともOneHot `size` 個と通常制約 `size` 個をactiveに持ちます。
+`indicator-sos1` でも各グループにはIndicatorまたはSOS1の一方だけを割り当て、制約数を揃えます。
+directとpreparedから生成されるAmplify Modelは同一で、preparedだけがremoved constraintsとprovenanceを保持します。
+IndicatorとSOS1はOneHotから導かれる冗長制約なので、全ケースの実行可能領域と最適値は同一です。
 PreparationはコピーしたInstanceへ
 `OMMXFixstarsAmplifyAdapter.recommended_preparation_policy()` を適用します。
 
 ## 測定対象
 
 `prepare` はInstanceの生成、コピー、Policy生成を測定外とし、`Instance.prepare()`だけを測定します。
-`instance-to-model` は必要なPreparationを測定外で済ませ、Adapterの生成だけを測定します。
+`instance-to-model` は `preparation=recommended` の場合だけPreparationを測定外で済ませ、Adapterの生成だけを測定します。
 `result-to-solution` は必要なPreparationとAmplifyでの求解を測定外で一度行い、`adapter.decode(result)`だけを測定します。
 時間測定では、プロセス内でウォームアップ前の初回実行時間と、ウォームアップ後20回の中央値を記録します。
 メモリ測定では、ウォームアップ前の初回実行と、その実行をウォームアップとした2回目のピークメモリを記録します。
@@ -80,13 +83,17 @@ for special_constraints in indicator sos1 indicator-sos1; do
   for size in 10 20 30; do
     uv run --frozen python benchmarks/timing.py prepare \
       --instance one-hot-preparation --formulation one-hot \
-      --special-constraints "$special_constraints" --size "$size" \
+      --special-constraints "$special_constraints" \
+      --preparation recommended --size "$size" \
       | tee "benchmark_results/v3-${special_constraints}-prepare-timing-${size}.csv"
 
-    uv run --frozen python benchmarks/timing.py instance-to-model \
-      --instance one-hot-preparation --formulation one-hot \
-      --special-constraints "$special_constraints" --size "$size" \
-      | tee "benchmark_results/v3-${special_constraints}-instance-to-model-timing-${size}.csv"
+    for preparation in none recommended; do
+      uv run --frozen python benchmarks/timing.py instance-to-model \
+        --instance one-hot-preparation --formulation one-hot \
+        --special-constraints "$special_constraints" \
+        --preparation "$preparation" --size "$size" \
+        | tee "benchmark_results/v3-${special_constraints}-${preparation}-instance-to-model-timing-${size}.csv"
+    done
   done
 done
 ```
@@ -109,10 +116,13 @@ done
 
 for special_constraints in indicator sos1 indicator-sos1; do
   for size in 10 20 30; do
-    uv run --frozen python benchmarks/timing.py result-to-solution \
-      --instance one-hot-preparation --formulation one-hot \
-      --special-constraints "$special_constraints" --size "$size" \
-      | tee "benchmark_results/v3-${special_constraints}-result-to-solution-timing-${size}.csv"
+    for preparation in none recommended; do
+      uv run --frozen python benchmarks/timing.py result-to-solution \
+        --instance one-hot-preparation --formulation one-hot \
+        --special-constraints "$special_constraints" \
+        --preparation "$preparation" --size "$size" \
+        | tee "benchmark_results/v3-${special_constraints}-${preparation}-result-to-solution-timing-${size}.csv"
+    done
   done
 done
 ```
@@ -130,9 +140,11 @@ uv run --frozen --with memray python benchmarks/memory.py instance-to-model \
 
 uv run --frozen --with memray python benchmarks/memory.py prepare \
   --instance one-hot-preparation --formulation one-hot \
-  --special-constraints indicator-sos1 --size 20
+  --special-constraints indicator-sos1 \
+  --preparation recommended --size 20
 
 uv run --frozen --with memray python benchmarks/memory.py instance-to-model \
   --instance one-hot-preparation --formulation one-hot \
-  --special-constraints indicator-sos1 --size 20
+  --special-constraints indicator-sos1 \
+  --preparation recommended --size 20
 ```

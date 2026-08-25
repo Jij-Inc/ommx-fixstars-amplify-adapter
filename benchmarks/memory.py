@@ -7,10 +7,10 @@ from common import (
     FORMULATIONS,
     INSTANCE_NAMES,
     PACKAGE_VERSIONS,
+    PREPARATIONS,
     SPECIAL_CONSTRAINT_CASES,
     build_instance,
     make_benchmark_operation,
-    preparation_name,
 )
 
 
@@ -24,6 +24,7 @@ def main() -> None:
     parser.add_argument(
         "--special-constraints", choices=SPECIAL_CONSTRAINT_CASES, default="none"
     )
+    parser.add_argument("--preparation", choices=PREPARATIONS, default="none")
     parser.add_argument("--size", required=True, type=int)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--solver-time-limit-ms", type=int, default=10_000)
@@ -41,12 +42,14 @@ def main() -> None:
             args.seed,
             args.formulation,
             args.special_constraints,
+            args.preparation,
         )
         benchmark = make_benchmark_operation(
             args.operation,
             instance,
             args.solver_time_limit_ms,
             args.special_constraints,
+            args.preparation,
         )
     except ValueError as error:
         parser.error(str(error))
@@ -84,7 +87,7 @@ def main() -> None:
         args.instance,
         args.formulation,
         args.special_constraints,
-        preparation_name(args.special_constraints),
+        args.preparation,
         args.size,
         first_peak_memory_bytes,
         peak_memory_bytes,

@@ -4,36 +4,49 @@ import copy
 import itertools
 
 import pytest
+from conftest import assert_amplify_model
 from ommx import ProvenanceKind, SpecialConstraintKind, State
 
-from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
-
 from benchmarks.instance import build_one_hot_preparation_instance
+from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
 
 
 @pytest.mark.parametrize(
-    ("special_constraints", "expected_kinds"),
+    ("special_constraints", "indicator_count", "sos1_count"),
     [
-        ("indicator", {ProvenanceKind.IndicatorConstraint}),
-        ("sos1", {ProvenanceKind.Sos1Constraint}),
-        (
-            "indicator-sos1",
-            {
-                ProvenanceKind.IndicatorConstraint,
-                ProvenanceKind.Sos1Constraint,
-            },
-        ),
+        ("indicator", 4, 0),
+        ("sos1", 0, 4),
+        ("indicator-sos1", 2, 2),
     ],
 )
-def test_one_hot_preparation_cases(special_constraints, expected_kinds):
-    size = 3
+def test_direct_and_prepared_cases_have_aligned_active_constraints(
+    special_constraints,
+    indicator_count,
+    sos1_count,
+):
+    size = 4
+    direct = build_one_hot_preparation_instance(
+        size,
+        special_constraints=special_constraints,
+        preparation="none",
+    )
     source = build_one_hot_preparation_instance(
         size,
         special_constraints=special_constraints,
+        preparation="recommended",
     )
     before = source.to_v2_bytes()
     input_class = OMMXFixstarsAmplifyAdapter.INPUT_CLASS
     assert input_class is not None
+
+    assert len(direct.constraints) == size
+    assert len(direct.one_hot_constraints) == size
+    assert direct.indicator_constraints == {}
+    assert direct.sos1_constraints == {}
+    assert len(source.constraints) == 0
+    assert len(source.one_hot_constraints) == size
+    assert len(source.indicator_constraints) == indicator_count
+    assert len(source.sos1_constraints) == sos1_count
     assert not input_class.contains(source)
 
     prepared = copy.copy(source)
@@ -43,35 +56,63 @@ def test_one_hot_preparation_cases(special_constraints, expected_kinds):
     )
 
     assert source.to_v2_bytes() == before
-    assert len(prepared.constraints) == size * len(expected_kinds)
+    assert len(prepared.constraints) == size
     assert len(prepared.one_hot_constraints) == size
     assert prepared.indicator_constraints == {}
     assert prepared.sos1_constraints == {}
+    assert len(prepared.removed_indicator_constraints) == indicator_count
+    assert len(prepared.removed_sos1_constraints) == sos1_count
     assert prepared.active_special_constraint_kinds == {SpecialConstraintKind.OneHot}
+    expected_kinds = (
+        {ProvenanceKind.IndicatorConstraint, ProvenanceKind.Sos1Constraint}
+        if indicator_count and sos1_count
+        else {
+            ProvenanceKind.IndicatorConstraint
+            if indicator_count
+            else ProvenanceKind.Sos1Constraint
+        }
+    )
     assert {
         constraint.provenance[-1].kind for constraint in prepared.constraints.values()
     } == expected_kinds
+    assert input_class.contains(direct)
     assert input_class.contains(prepared)
-    assert OMMXFixstarsAmplifyAdapter(prepared).instance is prepared
+    direct_model = OMMXFixstarsAmplifyAdapter(direct).solver_input
+    prepared_model = OMMXFixstarsAmplifyAdapter(prepared).solver_input
+    assert_amplify_model(direct_model, prepared_model)
 
 
 @pytest.mark.parametrize(
     "special_constraints",
-    ["none", "indicator", "sos1", "indicator-sos1"],
+    ["indicator", "sos1", "indicator-sos1"],
 )
-def test_one_hot_preparation_cases_have_the_same_feasible_states(
+def test_direct_source_and_prepared_cases_have_the_same_feasible_states(
     special_constraints,
 ):
     size = 2
-    instance = build_one_hot_preparation_instance(
+    baseline = build_one_hot_preparation_instance(size)
+    direct = build_one_hot_preparation_instance(
         size,
         special_constraints=special_constraints,
+        preparation="none",
+    )
+    source = build_one_hot_preparation_instance(
+        size,
+        special_constraints=special_constraints,
+        preparation="recommended",
+    )
+    input_class = OMMXFixstarsAmplifyAdapter.INPUT_CLASS
+    assert input_class is not None
+    prepared = copy.copy(source)
+    prepared.prepare(
+        input_class,
+        OMMXFixstarsAmplifyAdapter.recommended_preparation_policy(),
     )
 
-    for choices in itertools.product(range(size), repeat=size):
-        entries = {
-            group * size + choice: float(choice == choices[group])
-            for group in range(size)
-            for choice in range(size)
-        }
-        assert instance.evaluate(State(entries=entries)).feasible
+    for values in itertools.product((0.0, 1.0), repeat=size**2):
+        entries = dict(enumerate(values))
+        expected = baseline.evaluate(State(entries=entries))
+        for instance in (direct, source, prepared):
+            evaluation = instance.evaluate(State(entries=entries))
+            assert evaluation.feasible == expected.feasible
+            assert evaluation.objective == expected.objective

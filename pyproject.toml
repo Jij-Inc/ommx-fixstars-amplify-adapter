@@ -44,3 +44,6 @@ namespaces = false
 
 [tool.setuptools_scm]
 version_file = "ommx_fixstars_amplify_adapter/_version.py"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
