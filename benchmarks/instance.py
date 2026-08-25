@@ -239,6 +239,55 @@ def build_assignment_instance(
     )
 
 
+def build_one_hot_preparation_instance(
+    size: int,
+    seed: int = 0,
+    formulation: str = "one-hot",
+) -> Instance:
+    """Build the OMMX v2 baseline for the preparation benchmark workload."""
+    _check_size(size, minimum=2)
+    if formulation != "one-hot":
+        raise ValueError(
+            "The one-hot-preparation Instance only supports one-hot formulation"
+        )
+    random_generator = random.Random(seed)
+
+    def variable_id(group: int, choice: int) -> int:
+        return group * size + choice
+
+    variables = [
+        DecisionVariable.binary(
+            variable_id(group, choice),
+            name="x",
+            subscripts=[group, choice],
+        )
+        for group in range(size)
+        for choice in range(size)
+    ]
+    objective = Linear(
+        terms={
+            variable.id: random_generator.uniform(0.5, 1.5) for variable in variables
+        }
+    )
+    specs = [
+        (
+            "one-choice",
+            [group],
+            [variable_id(group, choice) for choice in range(size)],
+        )
+        for group in range(size)
+    ]
+    constraints, constraint_hints = _build_one_hot_constraints(specs, formulation)
+
+    return Instance.from_components(
+        decision_variables=variables,
+        objective=objective,
+        constraints=constraints,
+        sense=Instance.MINIMIZE,
+        constraint_hints=constraint_hints,
+    )
+
+
 def build_facility_location_instance(
     size: int, seed: int = 0, formulation: str = "regular"
 ) -> Instance:

@@ -17,22 +17,30 @@
 | `unit-commitment` | Integer + Binary | 2次 | Integerの2乗項とBinaryの起動・連結制約 | `regular` | 50 / 200 / 450 |
 | `clique` | Binary | 定数0 | 1次等式と2次等式制約の変換 | `regular` | Instance → Model: 50 / 100 / 200、Result → Solution: 10 / 20 / 30 |
 | `tsp` | Binary | 2次 | 通常制約とOneHotの比較 | `regular` / `one-hot` | 10 / 20 / 30 |
+| `one-hot-preparation` | Binary | 1次 | v3 Preparation専用Instanceと同じ数理問題の比較基準 | `one-hot` | 10 / 20 / 30 |
 
 `size` は `knapsack`、`production`、`blending` では変数数、
 `assignment` と `tsp` では一辺の要素数、`facility-location` では施設数と顧客数、
 `portfolio` と `portfolio-cardinality` では資産数、`unit-commitment` では発電機数、
-`clique` では頂点数を表します。
+`clique` では頂点数、`one-hot-preparation` ではOneHotグループ数と各グループの変数数を表します。
 `clique` は、2次制約の変換負荷を測る `instance-to-model` では
 50 / 100 / 200、Amplifyが実行可能解を返せる規模でデコードを測る
 `result-to-solution` では 10 / 20 / 30 を使用します。
 
 制約表現は `--formulation regular` または `--formulation one-hot` で選択します。
-`one-hot` を選択できるのは `assignment` と `tsp` だけです。
+`one-hot` を選択できるのは `assignment`、`tsp`、`one-hot-preparation` だけです。
 v2のOneHotは通常の等式制約と `ConstraintHints.OneHot` の組で表現します。
 
 現在のAdapterは `ConstraintHints` を参照せず、すべての制約を通常制約として変換します
 (`amplify.one_hot` は未使用)。そのため `regular` と `one-hot` で生成されるAmplifyモデルは
 同一であり、この比較はヒント付与が変換時間・メモリにオーバーヘッドを生まないことの確認が目的です。
+
+### Preparation比較用baseline
+
+`one-hot-preparation` はv3側のPreparation性能測定専用Instanceと同じ決定変数、目的関数、
+OneHotグループを持つ比較基準です。OMMX v2にはfirst-classなIndicator/SOS1と
+`Instance.prepare()`がないため、`--special-constraints none`、Preparationなしで測定します。
+v3側のIndicator/SOS1はOneHotから導かれる冗長制約なので、このv2 baselineと実行可能領域・最適値は同一です。
 
 ## 測定対象
 
@@ -58,6 +66,13 @@ for size in 10 20 30; do
     --instance tsp --formulation one-hot --size "$size" \
     | tee "benchmark_results/v2-one-hot-instance-to-model-timing-${size}.csv"
 done
+
+for size in 10 20 30; do
+  uv run --frozen python benchmarks/timing.py instance-to-model \
+    --instance one-hot-preparation --formulation one-hot \
+    --special-constraints none --size "$size" \
+    | tee "benchmark_results/v2-one-hot-preparation-instance-to-model-timing-${size}.csv"
+done
 ```
 
 `Result -> Solution` の測定にはAmplify tokenが必要です。
@@ -68,6 +83,13 @@ for size in 10 20 30; do
   uv run --frozen python benchmarks/timing.py result-to-solution \
     --instance tsp --formulation regular --size "$size" \
     | tee "benchmark_results/v2-regular-result-to-solution-timing-${size}.csv"
+done
+
+for size in 10 20 30; do
+  uv run --frozen python benchmarks/timing.py result-to-solution \
+    --instance one-hot-preparation --formulation one-hot \
+    --special-constraints none --size "$size" \
+    | tee "benchmark_results/v2-one-hot-preparation-result-to-solution-timing-${size}.csv"
 done
 
 for size in 10 20 30; do
@@ -87,4 +109,8 @@ uv run --frozen --with memray python benchmarks/memory.py instance-to-model \
 
 uv run --frozen --with memray python benchmarks/memory.py instance-to-model \
   --instance tsp --formulation one-hot --size 20
+
+uv run --frozen --with memray python benchmarks/memory.py instance-to-model \
+  --instance one-hot-preparation --formulation one-hot \
+  --special-constraints none --size 20
 ```

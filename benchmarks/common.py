@@ -1,5 +1,6 @@
 import os
 from collections.abc import Callable
+from dataclasses import dataclass
 from importlib.metadata import version
 from typing import Any
 
@@ -14,6 +15,7 @@ from instance import (
     build_clique_instance,
     build_facility_location_instance,
     build_knapsack_instance,
+    build_one_hot_preparation_instance,
     build_portfolio_cardinality_instance,
     build_portfolio_instance,
     build_production_instance,
@@ -32,9 +34,11 @@ INSTANCE_BUILDERS = {
     "unit-commitment": build_unit_commitment_instance,
     "clique": build_clique_instance,
     "tsp": build_tsp_instance,
+    "one-hot-preparation": build_one_hot_preparation_instance,
 }
 INSTANCE_NAMES = tuple(INSTANCE_BUILDERS)
 FORMULATIONS = ("regular", "one-hot")
+SPECIAL_CONSTRAINT_CASES = ("none", "indicator", "sos1", "indicator-sos1")
 
 PACKAGE_VERSIONS = (
     version("ommx"),
@@ -43,17 +47,36 @@ PACKAGE_VERSIONS = (
 )
 
 
-def build_instance(name: str, size: int, seed: int, formulation: str) -> Instance:
+@dataclass(frozen=True)
+class BenchmarkOperation:
+    """Separate per-sample setup from the operation being measured."""
+
+    setup: Callable[[], Any]
+    run: Callable[[Any], Any]
+
+
+def build_instance(
+    name: str,
+    size: int,
+    seed: int,
+    formulation: str,
+    special_constraints: str = "none",
+) -> Instance:
     """Select and build a benchmark Instance."""
+    if special_constraints != "none":
+        raise ValueError("OMMX v2 does not support Indicator or SOS1 constraints")
     return INSTANCE_BUILDERS[name](size, seed, formulation)
 
 
-def prepare_target(
+def make_benchmark_operation(
     operation: str, instance: Instance, solver_time_limit_ms: int
-) -> Callable[[], Any]:
+) -> BenchmarkOperation:
     """Prepare everything outside the measured operation."""
     if operation == "instance-to-model":
-        return lambda: OMMXFixstarsAmplifyAdapter(instance).solver_input
+        return BenchmarkOperation(
+            setup=lambda: instance,
+            run=lambda target: OMMXFixstarsAmplifyAdapter(target).solver_input,
+        )
 
     token = os.environ.get("AMPLIFY_TOKEN")
     if not token:
@@ -64,4 +87,7 @@ def prepare_target(
     client.token = token
     client.parameters.time_limit_ms = solver_time_limit_ms
     result = amplify.solve(adapter.solver_input, client)
-    return lambda: adapter.decode(result)
+    return BenchmarkOperation(
+        setup=lambda: result,
+        run=lambda solver_result: adapter.decode(solver_result),
+    )

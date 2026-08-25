@@ -7,8 +7,9 @@ from common import (
     FORMULATIONS,
     INSTANCE_NAMES,
     PACKAGE_VERSIONS,
+    SPECIAL_CONSTRAINT_CASES,
     build_instance,
-    prepare_target,
+    make_benchmark_operation,
 )
 
 
@@ -19,6 +20,9 @@ def main() -> None:
     )
     parser.add_argument("--instance", choices=INSTANCE_NAMES, default="tsp")
     parser.add_argument("--formulation", choices=FORMULATIONS, default="regular")
+    parser.add_argument(
+        "--special-constraints", choices=SPECIAL_CONSTRAINT_CASES, default="none"
+    )
     parser.add_argument("--size", required=True, type=int)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--warmup", type=int, default=3)
@@ -26,28 +30,46 @@ def main() -> None:
     parser.add_argument("--solver-time-limit-ms", type=int, default=10_000)
     args = parser.parse_args()
 
-    print(
-        "operation,instance,formulation,size,first_seconds,median_seconds,"
-        "ommx_version,amplify_version,adapter_version"
+    try:
+        instance = build_instance(
+            args.instance,
+            args.size,
+            args.seed,
+            args.formulation,
+            args.special_constraints,
+        )
+    except ValueError as error:
+        parser.error(str(error))
+    benchmark = make_benchmark_operation(
+        args.operation,
+        instance,
+        args.solver_time_limit_ms,
     )
-    instance = build_instance(args.instance, args.size, args.seed, args.formulation)
-    target = prepare_target(args.operation, instance, args.solver_time_limit_ms)
+
+    print(
+        "operation,instance,formulation,special_constraints,preparation,size,"
+        "first_seconds,median_seconds,ommx_version,amplify_version,adapter_version"
+    )
 
     gc_was_enabled = gc.isenabled()
     gc.disable()
     try:
         gc.collect()
+        first_context = benchmark.setup()
         start = time.perf_counter()
-        first_result = target()
+        first_result = benchmark.run(first_context)
         first_seconds = time.perf_counter() - start
         del first_result
+        del first_context
     finally:
         if gc_was_enabled:
             gc.enable()
 
     for _ in range(args.warmup):
-        result = target()
+        context = benchmark.setup()
+        result = benchmark.run(context)
         del result
+        del context
 
     samples = []
     gc_was_enabled = gc.isenabled()
@@ -55,10 +77,12 @@ def main() -> None:
     try:
         for _ in range(args.repeat):
             gc.collect()
+            context = benchmark.setup()
             start = time.perf_counter()
-            result = target()
+            result = benchmark.run(context)
             elapsed = time.perf_counter() - start
             del result
+            del context
             samples.append(elapsed)
     finally:
         if gc_was_enabled:
@@ -68,6 +92,8 @@ def main() -> None:
         args.operation,
         args.instance,
         args.formulation,
+        args.special_constraints,
+        "none",
         args.size,
         f"{first_seconds:.9f}",
         f"{statistics.median(samples):.9f}",
