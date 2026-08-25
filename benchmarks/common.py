@@ -5,10 +5,6 @@ from importlib.metadata import version
 from typing import Any
 
 import amplify
-from ommx.v1 import Instance
-
-from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
-
 from instance import (
     build_assignment_instance,
     build_blending_instance,
@@ -22,6 +18,9 @@ from instance import (
     build_tsp_instance,
     build_unit_commitment_instance,
 )
+from ommx.v1 import Instance
+
+from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
 
 INSTANCE_BUILDERS = {
     "knapsack": build_knapsack_instance,
@@ -63,8 +62,17 @@ def build_instance(
     special_constraints: str = "none",
 ) -> Instance:
     """Select and build a benchmark Instance."""
+    if name == "one-hot-preparation":
+        return build_one_hot_preparation_instance(
+            size,
+            seed,
+            formulation,
+            special_constraints,
+        )
     if special_constraints != "none":
-        raise ValueError("OMMX v2 does not support Indicator or SOS1 constraints")
+        raise ValueError(
+            "Special constraint counterparts are available only for one-hot-preparation"
+        )
     return INSTANCE_BUILDERS[name](size, seed, formulation)
 
 

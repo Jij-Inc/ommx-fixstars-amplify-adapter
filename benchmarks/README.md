@@ -17,7 +17,7 @@
 | `unit-commitment` | Integer + Binary | 2次 | Integerの2乗項とBinaryの起動・連結制約 | `regular` | 50 / 200 / 450 |
 | `clique` | Binary | 定数0 | 1次等式と2次等式制約の変換 | `regular` | Instance → Model: 50 / 100 / 200、Result → Solution: 10 / 20 / 30 |
 | `tsp` | Binary | 2次 | 通常制約とOneHotの比較 | `regular` / `one-hot` | 10 / 20 / 30 |
-| `one-hot-preparation` | Binary | 1次 | v3 Preparation専用Instanceと同じ数理問題の比較基準 | `one-hot` | 10 / 20 / 30 |
+| `one-hot-preparation` | Binary | 1次 | v3 Preparation後と同じ通常制約を持つ比較基準 | `one-hot` | 10 / 20 / 30 |
 
 `size` は `knapsack`、`production`、`blending` では変数数、
 `assignment` と `tsp` では一辺の要素数、`facility-location` では施設数と顧客数、
@@ -35,12 +35,24 @@ v2のOneHotは通常の等式制約と `ConstraintHints.OneHot` の組で表現�
 (`amplify.one_hot` は未使用)。そのため `regular` と `one-hot` で生成されるAmplifyモデルは
 同一であり、この比較はヒント付与が変換時間・メモリにオーバーヘッドを生まないことの確認が目的です。
 
-### Preparation比較用baseline
+### Preparation比較用counterpart
 
 `one-hot-preparation` はv3側のPreparation性能測定専用Instanceと同じ決定変数、目的関数、
 OneHotグループを持つ比較基準です。OMMX v2にはfirst-classなIndicator/SOS1と
-`Instance.prepare()`がないため、`--special-constraints none`、Preparationなしで測定します。
-v3側のIndicator/SOS1はOneHotから導かれる冗長制約なので、このv2 baselineと実行可能領域・最適値は同一です。
+`Instance.prepare()`がないため、`--special-constraints` は特殊制約そのものではなく、
+対応するv3 Preparation後と同じ通常不等式をInstance生成時に直接追加します。
+
+| Case | v2 Instanceに追加する通常制約 |
+| --- | --- |
+| `none` | 追加なし |
+| `indicator` | v3でIndicatorからlowerされるBig-M不等式 |
+| `sos1` | v3でSOS1からlowerされるat-most-one不等式 |
+| `indicator-sos1` | 前半グループにIndicator相当、後半グループにSOS1相当 |
+
+全ケースでPreparationは行わず、CSVの `preparation` は `none` です。
+各caseで追加する通常制約は常に `size` 個で、OneHot等式と合わせたactive制約は
+常に `2 * size` 個です。
+追加制約はOneHotから導かれる冗長制約なので、4ケースの実行可能領域と最適値は同一です。
 
 ## 測定対象
 
@@ -67,11 +79,13 @@ for size in 10 20 30; do
     | tee "benchmark_results/v2-one-hot-instance-to-model-timing-${size}.csv"
 done
 
-for size in 10 20 30; do
-  uv run --frozen python benchmarks/timing.py instance-to-model \
-    --instance one-hot-preparation --formulation one-hot \
-    --special-constraints none --size "$size" \
-    | tee "benchmark_results/v2-one-hot-preparation-instance-to-model-timing-${size}.csv"
+for special_constraints in none indicator sos1 indicator-sos1; do
+  for size in 10 20 30; do
+    uv run --frozen python benchmarks/timing.py instance-to-model \
+      --instance one-hot-preparation --formulation one-hot \
+      --special-constraints "$special_constraints" --size "$size" \
+      | tee "benchmark_results/v2-${special_constraints}-instance-to-model-timing-${size}.csv"
+  done
 done
 ```
 
@@ -85,11 +99,13 @@ for size in 10 20 30; do
     | tee "benchmark_results/v2-regular-result-to-solution-timing-${size}.csv"
 done
 
-for size in 10 20 30; do
-  uv run --frozen python benchmarks/timing.py result-to-solution \
-    --instance one-hot-preparation --formulation one-hot \
-    --special-constraints none --size "$size" \
-    | tee "benchmark_results/v2-one-hot-preparation-result-to-solution-timing-${size}.csv"
+for special_constraints in none indicator sos1 indicator-sos1; do
+  for size in 10 20 30; do
+    uv run --frozen python benchmarks/timing.py result-to-solution \
+      --instance one-hot-preparation --formulation one-hot \
+      --special-constraints "$special_constraints" --size "$size" \
+      | tee "benchmark_results/v2-${special_constraints}-result-to-solution-timing-${size}.csv"
+  done
 done
 
 for size in 10 20 30; do
@@ -112,5 +128,5 @@ uv run --frozen --with memray python benchmarks/memory.py instance-to-model \
 
 uv run --frozen --with memray python benchmarks/memory.py instance-to-model \
   --instance one-hot-preparation --formulation one-hot \
-  --special-constraints none --size 20
+  --special-constraints indicator-sos1 --size 20
 ```
