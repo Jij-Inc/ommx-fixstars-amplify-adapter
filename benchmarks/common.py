@@ -1,5 +1,7 @@
+import copy
 import os
 from collections.abc import Callable
+from dataclasses import dataclass
 from importlib.metadata import version
 from typing import Any
 
@@ -14,6 +16,7 @@ from instance import (
     build_clique_instance,
     build_facility_location_instance,
     build_knapsack_instance,
+    build_one_hot_preparation_instance,
     build_portfolio_cardinality_instance,
     build_portfolio_instance,
     build_production_instance,
@@ -33,8 +36,10 @@ INSTANCE_BUILDERS = {
     "clique": build_clique_instance,
     "tsp": build_tsp_instance,
 }
-INSTANCE_NAMES = tuple(INSTANCE_BUILDERS)
+PREPARATION_INSTANCE_NAME = "one-hot-preparation"
+INSTANCE_NAMES = (*INSTANCE_BUILDERS, PREPARATION_INSTANCE_NAME)
 FORMULATIONS = ("regular", "one-hot")
+SPECIAL_CONSTRAINT_CASES = ("none", "indicator", "sos1", "indicator-sos1")
 
 PACKAGE_VERSIONS = (
     version("ommx"),
@@ -43,25 +48,98 @@ PACKAGE_VERSIONS = (
 )
 
 
-def build_instance(name: str, size: int, seed: int, formulation: str) -> Instance:
+@dataclass(frozen=True)
+class BenchmarkOperation:
+    """Separate per-sample setup from the operation being measured."""
+
+    setup: Callable[[], Any]
+    run: Callable[[Any], Any]
+
+
+def build_instance(
+    name: str,
+    size: int,
+    seed: int,
+    formulation: str,
+    special_constraints: str = "none",
+) -> Instance:
     """Select and build a benchmark Instance."""
+    if name == PREPARATION_INSTANCE_NAME:
+        return build_one_hot_preparation_instance(
+            size,
+            seed,
+            formulation,
+            special_constraints,
+        )
+    if special_constraints != "none":
+        raise ValueError(
+            "Special constraints are available only for one-hot-preparation"
+        )
     return INSTANCE_BUILDERS[name](size, seed, formulation)
 
 
-def prepare_target(
-    operation: str, instance: Instance, solver_time_limit_ms: int
-) -> Callable[[], Any]:
-    """Prepare everything outside the measured operation."""
+def preparation_name(special_constraints: str) -> str:
+    return "none" if special_constraints == "none" else "recommended"
+
+
+def _prepare_instance(instance: Instance) -> Instance:
+    input_class = OMMXFixstarsAmplifyAdapter.INPUT_CLASS
+    if input_class is None:
+        raise RuntimeError("The adapter does not declare INPUT_CLASS")
+    prepared = copy.copy(instance)
+    prepared.prepare(
+        input_class,
+        OMMXFixstarsAmplifyAdapter.recommended_preparation_policy(),
+    )
+    return prepared
+
+
+def make_benchmark_operation(
+    operation: str,
+    instance: Instance,
+    solver_time_limit_ms: int,
+    special_constraints: str,
+) -> BenchmarkOperation:
+    """Prepare setup and measured call for a benchmark operation."""
+    if operation == "prepare":
+        if special_constraints == "none":
+            raise ValueError("prepare requires Indicator and/or SOS1 constraints")
+        input_class = OMMXFixstarsAmplifyAdapter.INPUT_CLASS
+        if input_class is None:
+            raise RuntimeError("The adapter does not declare INPUT_CLASS")
+
+        def setup_preparation() -> tuple[Instance, Any]:
+            return (
+                copy.copy(instance),
+                OMMXFixstarsAmplifyAdapter.recommended_preparation_policy(),
+            )
+
+        def run_preparation(context: tuple[Instance, Any]) -> Instance:
+            prepared, policy = context
+            prepared.prepare(input_class, policy)
+            return prepared
+
+        return BenchmarkOperation(setup=setup_preparation, run=run_preparation)
+
+    adapter_instance = (
+        _prepare_instance(instance) if special_constraints != "none" else instance
+    )
     if operation == "instance-to-model":
-        return lambda: OMMXFixstarsAmplifyAdapter(instance).solver_input
+        return BenchmarkOperation(
+            setup=lambda: adapter_instance,
+            run=lambda target: OMMXFixstarsAmplifyAdapter(target).solver_input,
+        )
 
     token = os.environ.get("AMPLIFY_TOKEN")
     if not token:
         raise RuntimeError("AMPLIFY_TOKEN is required")
 
-    adapter = OMMXFixstarsAmplifyAdapter(instance)
+    adapter = OMMXFixstarsAmplifyAdapter(adapter_instance)
     client = amplify.AmplifyAEClient()  # pyright: ignore[reportAttributeAccessIssue]
     client.token = token
     client.parameters.time_limit_ms = solver_time_limit_ms
     result = amplify.solve(adapter.solver_input, client)
-    return lambda: adapter.decode(result)
+    return BenchmarkOperation(
+        setup=lambda: result,
+        run=lambda solver_result: adapter.decode(solver_result),
+    )

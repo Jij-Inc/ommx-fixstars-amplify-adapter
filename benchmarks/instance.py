@@ -4,10 +4,13 @@ import random
 from ommx import (
     Constraint,
     DecisionVariable,
+    Equality,
+    IndicatorConstraint,
     Instance,
     Linear,
     OneHotConstraint,
     Quadratic,
+    Sos1Constraint,
 )
 
 
@@ -233,6 +236,99 @@ def build_assignment_instance(
         objective=Linear(terms=costs),
         constraints=constraints,
         one_hot_constraints=one_hot_constraints,
+        sense=Instance.MINIMIZE,
+    )
+
+
+def build_one_hot_preparation_instance(
+    size: int,
+    seed: int = 0,
+    formulation: str = "one-hot",
+    special_constraints: str = "none",
+) -> Instance:
+    """Build a grouped binary problem for measuring Instance preparation.
+
+    Each group has exactly one selected variable. Indicator and SOS1 constraints
+    are redundant consequences of that OneHot constraint, so every preparation
+    case has the same feasible region and objective.
+    """
+    _check_size(size, minimum=2)
+    if formulation != "one-hot":
+        raise ValueError(
+            "The one-hot-preparation Instance only supports one-hot formulation"
+        )
+    if special_constraints not in (
+        "none",
+        "indicator",
+        "sos1",
+        "indicator-sos1",
+    ):
+        raise ValueError(f"Unknown special constraints: {special_constraints}")
+
+    random_generator = random.Random(seed)
+
+    def variable_id(group: int, choice: int) -> int:
+        return group * size + choice
+
+    variables = [
+        DecisionVariable.binary(
+            variable_id(group, choice),
+            name="x",
+            subscripts=[group, choice],
+        )
+        for group in range(size)
+        for choice in range(size)
+    ]
+    objective = Linear(
+        terms={
+            variable.id: random_generator.uniform(0.5, 1.5) for variable in variables
+        }
+    )
+    groups = [
+        [variable_id(group, choice) for choice in range(size)] for group in range(size)
+    ]
+    one_hot_constraints = {
+        group: OneHotConstraint(
+            variables=variable_ids,
+            name="one-choice",
+            subscripts=[group],
+        )
+        for group, variable_ids in enumerate(groups)
+    }
+
+    indicator_constraints: dict[int, IndicatorConstraint] = {}
+    if special_constraints in ("indicator", "indicator-sos1"):
+        indicator_constraints = {
+            group: IndicatorConstraint(
+                indicator_variable=variable_ids[0],
+                function=Linear(
+                    terms={variable_id: 1 for variable_id in variable_ids[1:]}
+                ),
+                equality=Equality.LessThanOrEqualToZero,
+                name="remaining-choices-disabled",
+                subscripts=[group],
+            )
+            for group, variable_ids in enumerate(groups)
+        }
+
+    sos1_constraints: dict[int, Sos1Constraint] = {}
+    if special_constraints in ("sos1", "indicator-sos1"):
+        sos1_constraints = {
+            group: Sos1Constraint(
+                variables=variable_ids,
+                name="at-most-one-choice",
+                subscripts=[group],
+            )
+            for group, variable_ids in enumerate(groups)
+        }
+
+    return Instance.from_components(
+        decision_variables=variables,
+        objective=objective,
+        constraints={},
+        indicator_constraints=indicator_constraints,
+        one_hot_constraints=one_hot_constraints,
+        sos1_constraints=sos1_constraints,
         sense=Instance.MINIMIZE,
     )
 
