@@ -86,8 +86,6 @@ def build_instance(
 
 def _prepare_instance(instance: Instance) -> Instance:
     input_class = OMMXFixstarsAmplifyAdapter.INPUT_CLASS
-    if input_class is None:
-        raise RuntimeError("The adapter does not declare INPUT_CLASS")
     prepared = copy.copy(instance)
     prepared.prepare(
         input_class,
@@ -111,8 +109,6 @@ def make_benchmark_operation(
                 "recommended preparation"
             )
         input_class = OMMXFixstarsAmplifyAdapter.INPUT_CLASS
-        if input_class is None:
-            raise RuntimeError("The adapter does not declare INPUT_CLASS")
 
         def setup_preparation() -> tuple[Instance, Any]:
             return (

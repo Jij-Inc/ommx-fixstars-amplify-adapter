@@ -37,7 +37,6 @@ def test_direct_and_prepared_cases_have_aligned_active_constraints(
     )
     before = source.to_v2_bytes()
     input_class = OMMXFixstarsAmplifyAdapter.INPUT_CLASS
-    assert input_class is not None
 
     assert len(direct.constraints) == size
     assert len(direct.one_hot_constraints) == size
@@ -102,7 +101,6 @@ def test_direct_source_and_prepared_cases_have_the_same_feasible_states(
         preparation="recommended",
     )
     input_class = OMMXFixstarsAmplifyAdapter.INPUT_CLASS
-    assert input_class is not None
     prepared = copy.copy(source)
     prepared.prepare(
         input_class,
