@@ -4,10 +4,10 @@ import pytest
 
 from ommx import (
     DecisionVariable,
-    DegreeBound,
     Equality,
+    IndicatorConstraint,
     Instance,
-    Kind,
+    InstanceClassMismatch,
     OneHotConstraint,
     Sense,
     Sos1Constraint,
@@ -17,28 +17,6 @@ from ommx.adapter import AdapterNotApplicableError
 from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
 
 
-def test_declares_polynomial_input_class() -> None:
-    input_class = OMMXFixstarsAmplifyAdapter.INPUT_CLASS
-    assert input_class is not None
-    [clause] = input_class.clauses
-
-    assert clause.label == "fixstars-amplify-polynomial"
-    assert clause.allowed_variable_kinds == {
-        Kind.Binary,
-        Kind.Integer,
-        Kind.Continuous,
-    }
-    assert clause.objective_degree_bound == DegreeBound.unbounded()
-    assert clause.regular_constraint_degree_bounds == {
-        Equality.EqualToZero: DegreeBound.unbounded(),
-        Equality.LessThanOrEqualToZero: DegreeBound.unbounded(),
-    }
-    assert clause.indicator_constraint_degree_bounds == {}
-    assert clause.allows_one_hot
-    assert not clause.allows_sos1
-    assert clause.allowed_senses == {Sense.Minimize, Sense.Maximize}
-
-
 def test_recommended_preparation_policies_are_independent() -> None:
     first = OMMXFixstarsAmplifyAdapter.recommended_preparation_policy()
     second = OMMXFixstarsAmplifyAdapter.recommended_preparation_policy()
@@ -46,6 +24,43 @@ def test_recommended_preparation_policies_are_independent() -> None:
     assert first is not second
     first.special_constraints = None
     assert second.special_constraints is not None
+
+
+def test_rejects_unsupported_special_constraints_without_mutating_input():
+    indicator_variable = DecisionVariable.binary(0)
+    continuous_variable = DecisionVariable.continuous(1, lower=-2, upper=2)
+
+    instance = Instance.from_components(
+        decision_variables=[indicator_variable, continuous_variable],
+        objective=continuous_variable,
+        constraints={},
+        indicator_constraints={
+            0: IndicatorConstraint(
+                indicator_variable=indicator_variable,
+                function=continuous_variable - 1,
+                equality=Equality.LessThanOrEqualToZero,
+            )
+        },
+        sos1_constraints={0: Sos1Constraint(variables=[continuous_variable])},
+        sense=Sense.Minimize,
+    )
+    before = instance.to_v2_bytes()
+
+    with pytest.raises(AdapterNotApplicableError) as error:
+        OMMXFixstarsAmplifyAdapter(instance)
+
+    mismatches = error.value.report.clause_reports[0].mismatches
+    mismatch_types = {type(mismatch) for mismatch in mismatches}
+    assert InstanceClassMismatch.IndicatorConstraintsNotAllowed in mismatch_types
+    assert InstanceClassMismatch.Sos1ConstraintsNotAllowed in mismatch_types
+    assert instance.to_v2_bytes() == before
+
+    with pytest.raises(AdapterNotApplicableError):
+        OMMXFixstarsAmplifyAdapter.solve_without_preparation(
+            instance,
+            amplify_token="dummy",
+        )
+    assert instance.to_v2_bytes() == before
 
 
 def test_recommended_preparation_lowers_only_indicator_and_sos1() -> None:
@@ -65,9 +80,8 @@ def test_recommended_preparation_lowers_only_indicator_and_sos1() -> None:
     )
     before = instance.to_v2_bytes()
     input_class = OMMXFixstarsAmplifyAdapter.INPUT_CLASS
-    assert input_class is not None
 
-    assert not OMMXFixstarsAmplifyAdapter.check_applicability(instance).is_applicable
+    assert not OMMXFixstarsAmplifyAdapter.check_applicability(instance).is_member
     with pytest.raises(AdapterNotApplicableError):
         OMMXFixstarsAmplifyAdapter(instance)
     assert instance.to_v2_bytes() == before
@@ -87,7 +101,7 @@ def test_recommended_preparation_lowers_only_indicator_and_sos1() -> None:
         SpecialConstraintKind.OneHot,
     }
     assert input_class.contains(prepared)
-    assert OMMXFixstarsAmplifyAdapter.check_applicability(prepared).is_applicable
+    assert OMMXFixstarsAmplifyAdapter.check_applicability(prepared).is_member
 
     adapter = OMMXFixstarsAmplifyAdapter(prepared)
     assert adapter.instance is prepared

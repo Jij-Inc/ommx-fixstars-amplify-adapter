@@ -4,8 +4,8 @@ from ommx.adapter import AdapterNotApplicableError
 from ommx import (
     Constraint,
     DecisionVariable,
+    DegreeBound,
     Equality,
-    IndicatorConstraint,
     Instance,
     InstanceClassMismatch,
     Kind,
@@ -14,12 +14,32 @@ from ommx import (
     Polynomial,
     Quadratic,
     Sense,
-    Sos1Constraint,
 )
 
 from ommx_fixstars_amplify_adapter.adapter import OMMXFixstarsAmplifyAdapter
 from ommx_fixstars_amplify_adapter.exception import OMMXFixstarsAmplifyAdapterError
 from conftest import assert_amplify_model
+
+
+def test_declares_polynomial_input_class() -> None:
+    input_class = OMMXFixstarsAmplifyAdapter.INPUT_CLASS
+    [clause] = input_class.clauses
+
+    assert clause.label == "fixstars-amplify-polynomial"
+    assert clause.allowed_variable_kinds == {
+        Kind.Binary,
+        Kind.Integer,
+        Kind.Continuous,
+    }
+    assert clause.objective_degree_bound == DegreeBound.unbounded()
+    assert clause.regular_constraint_degree_bounds == {
+        Equality.EqualToZero: DegreeBound.unbounded(),
+        Equality.LessThanOrEqualToZero: DegreeBound.unbounded(),
+    }
+    assert clause.indicator_constraint_degree_bounds == {}
+    assert clause.allows_one_hot
+    assert not clause.allows_sos1
+    assert clause.allowed_senses == {Sense.Minimize, Sense.Maximize}
 
 
 def test_instance_to_model():
@@ -211,44 +231,10 @@ def test_input_class_accepts_polynomial_instance():
     before = instance.to_v2_bytes()
 
     report = OMMXFixstarsAmplifyAdapter.check_applicability(instance)
-    assert report.is_applicable
-    assert report.input_membership.matching_clauses == [
-        (0, "fixstars-amplify-polynomial")
-    ]
-    assert report.preconditions_checked
-    assert report.precondition_violations == ()
+    assert report.is_member
+    assert report.matching_clauses == [(0, "fixstars-amplify-polynomial")]
 
     OMMXFixstarsAmplifyAdapter(instance)
-    assert instance.to_v2_bytes() == before
-
-
-def test_rejects_unsupported_special_constraints_without_mutating_input():
-    indicator_variable = DecisionVariable.binary(0)
-    continuous_variable = DecisionVariable.continuous(1, lower=-2, upper=2)
-
-    instance = Instance.from_components(
-        decision_variables=[indicator_variable, continuous_variable],
-        objective=continuous_variable,
-        constraints={},
-        indicator_constraints={
-            0: IndicatorConstraint(
-                indicator_variable=indicator_variable,
-                function=continuous_variable - 1,
-                equality=Equality.LessThanOrEqualToZero,
-            )
-        },
-        sos1_constraints={0: Sos1Constraint(variables=[continuous_variable])},
-        sense=Sense.Minimize,
-    )
-    before = instance.to_v2_bytes()
-
-    with pytest.raises(AdapterNotApplicableError) as error:
-        OMMXFixstarsAmplifyAdapter(instance)
-
-    mismatches = error.value.report.input_membership.clause_reports[0].mismatches
-    mismatch_types = {type(mismatch) for mismatch in mismatches}
-    assert InstanceClassMismatch.IndicatorConstraintsNotAllowed in mismatch_types
-    assert InstanceClassMismatch.Sos1ConstraintsNotAllowed in mismatch_types
     assert instance.to_v2_bytes() == before
 
 
@@ -278,12 +264,31 @@ def test_rejects_unsupported_variable_kinds(decision_variable, kind):
     with pytest.raises(AdapterNotApplicableError) as error:
         OMMXFixstarsAmplifyAdapter(instance)
 
-    mismatches = error.value.report.input_membership.clause_reports[0].mismatches
+    mismatches = error.value.report.clause_reports[0].mismatches
     assert len(mismatches) == 1
     mismatch = mismatches[0]
     assert isinstance(mismatch, InstanceClassMismatch.VariableKindNotAllowed)
     assert mismatch.kind == kind
     assert mismatch.variable_ids == {0}
+
+
+def test_accepts_unused_unsupported_variable_kind_without_mutating_input():
+    used = DecisionVariable.binary(0)
+    unused = DecisionVariable.semi_integer(1, lower=1, upper=3)
+    instance = Instance.from_components(
+        decision_variables=[used, unused],
+        objective=2 * used + 1,
+        constraints={},
+        sense=Sense.Minimize,
+    )
+    before = instance.to_v2_bytes()
+
+    report = OMMXFixstarsAmplifyAdapter.check_applicability(instance)
+    adapter = OMMXFixstarsAmplifyAdapter(instance)
+
+    assert report.is_member
+    assert set(adapter.variable_map) == {used.id}
+    assert instance.to_v2_bytes() == before
 
 
 def test_one_hot_constraint():
