@@ -38,7 +38,7 @@ _POLYNOMIAL_REGULAR_CONSTRAINT_DEGREE_BOUNDS = {
 
 
 class OMMXFixstarsAmplifyAdapter(SolverAdapter):
-    INPUT_CLASS: ClassVar[InstanceClass | None] = InstanceClass(
+    INPUT_CLASS: ClassVar[InstanceClass] = InstanceClass(
         [
             InstanceClassClause(
                 label="fixstars-amplify-polynomial",
