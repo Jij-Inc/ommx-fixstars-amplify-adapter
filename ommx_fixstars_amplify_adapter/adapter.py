@@ -32,10 +32,6 @@ _AMPLIFY_VARIABLE_TYPES: dict[Kind, amplify.VariableType] = {
     Kind.Integer: amplify.VariableType.Integer,
     Kind.Continuous: amplify.VariableType.Real,
 }
-_POLYNOMIAL_REGULAR_CONSTRAINT_DEGREE_BOUNDS = {
-    Equality.EqualToZero: DegreeBound.unbounded(),
-    Equality.LessThanOrEqualToZero: DegreeBound.unbounded(),
-}
 
 
 class OMMXFixstarsAmplifyAdapter(SolverAdapter):
@@ -45,9 +41,10 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
                 label="fixstars-amplify-polynomial",
                 allowed_variable_kinds=set(_AMPLIFY_VARIABLE_TYPES),
                 objective_degree_bound=DegreeBound.unbounded(),
-                regular_constraint_degree_bounds=(
-                    _POLYNOMIAL_REGULAR_CONSTRAINT_DEGREE_BOUNDS
-                ),
+                regular_constraint_degree_bounds={
+                    Equality.EqualToZero: DegreeBound.unbounded(),
+                    Equality.LessThanOrEqualToZero: DegreeBound.unbounded(),
+                },
                 allows_one_hot=True,
                 allowed_senses={Sense.Minimize, Sense.Maximize},
             )
