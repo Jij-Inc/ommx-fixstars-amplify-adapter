@@ -6,6 +6,7 @@ from tempfile import TemporaryDirectory
 from common import (
     FORMULATIONS,
     INSTANCE_NAMES,
+    OPERATIONS,
     PACKAGE_VERSIONS,
     PREPARATIONS,
     SPECIAL_CONSTRAINT_CASES,
@@ -16,9 +17,7 @@ from common import (
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "operation", choices=("prepare", "instance-to-model", "result-to-solution")
-    )
+    parser.add_argument("operation", choices=OPERATIONS)
     parser.add_argument("--instance", choices=INSTANCE_NAMES, default="tsp")
     parser.add_argument("--formulation", choices=FORMULATIONS, default="regular")
     parser.add_argument(

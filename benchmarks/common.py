@@ -6,40 +6,38 @@ from importlib.metadata import version
 from typing import Any
 
 import amplify
-from instance import (
-    build_assignment_instance,
-    build_blending_instance,
-    build_clique_instance,
-    build_facility_location_instance,
-    build_knapsack_instance,
-    build_one_hot_preparation_instance,
-    build_portfolio_cardinality_instance,
-    build_portfolio_instance,
-    build_production_instance,
-    build_tsp_instance,
-    build_unit_commitment_instance,
-)
+
+if __package__:
+    from . import instance as benchmark_instances
+else:
+    import instance as benchmark_instances
 from ommx import Instance
 
 from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
 
 INSTANCE_BUILDERS = {
-    "knapsack": build_knapsack_instance,
-    "production": build_production_instance,
-    "blending": build_blending_instance,
-    "assignment": build_assignment_instance,
-    "facility-location": build_facility_location_instance,
-    "portfolio": build_portfolio_instance,
-    "portfolio-cardinality": build_portfolio_cardinality_instance,
-    "unit-commitment": build_unit_commitment_instance,
-    "clique": build_clique_instance,
-    "tsp": build_tsp_instance,
+    "knapsack": benchmark_instances.build_knapsack_instance,
+    "production": benchmark_instances.build_production_instance,
+    "blending": benchmark_instances.build_blending_instance,
+    "assignment": benchmark_instances.build_assignment_instance,
+    "facility-location": benchmark_instances.build_facility_location_instance,
+    "portfolio": benchmark_instances.build_portfolio_instance,
+    "portfolio-cardinality": benchmark_instances.build_portfolio_cardinality_instance,
+    "unit-commitment": benchmark_instances.build_unit_commitment_instance,
+    "clique": benchmark_instances.build_clique_instance,
+    "tsp": benchmark_instances.build_tsp_instance,
 }
 PREPARATION_INSTANCE_NAME = "one-hot-preparation"
 INSTANCE_NAMES = (*INSTANCE_BUILDERS, PREPARATION_INSTANCE_NAME)
 FORMULATIONS = ("regular", "one-hot")
 SPECIAL_CONSTRAINT_CASES = ("none", "indicator", "sos1", "indicator-sos1")
 PREPARATIONS = ("none", "recommended")
+OPERATIONS = (
+    "prepare",
+    "instance-to-model",
+    "result-to-solution",
+    "end-to-end",
+)
 
 PACKAGE_VERSIONS = (
     version("ommx"),
@@ -66,7 +64,7 @@ def build_instance(
 ) -> Instance:
     """Select and build a benchmark Instance."""
     if name == PREPARATION_INSTANCE_NAME:
-        return build_one_hot_preparation_instance(
+        return benchmark_instances.build_one_hot_preparation_instance(
             size,
             seed,
             formulation,
@@ -123,6 +121,28 @@ def make_benchmark_operation(
 
         return BenchmarkOperation(setup=setup_preparation, run=run_preparation)
 
+    if operation == "end-to-end":
+        token = os.environ.get("AMPLIFY_TOKEN")
+        if not token:
+            raise RuntimeError("AMPLIFY_TOKEN is required")
+        if preparation == "recommended":
+            return BenchmarkOperation(
+                setup=lambda: instance,
+                run=lambda target: OMMXFixstarsAmplifyAdapter.solve(
+                    target,
+                    amplify_token=token,
+                    timeout=solver_time_limit_ms,
+                ),
+            )
+        return BenchmarkOperation(
+            setup=lambda: instance,
+            run=lambda target: OMMXFixstarsAmplifyAdapter.solve_without_preparation(
+                target,
+                amplify_token=token,
+                timeout=solver_time_limit_ms,
+            ),
+        )
+
     adapter_instance = (
         _prepare_instance(instance) if preparation == "recommended" else instance
     )
@@ -131,6 +151,9 @@ def make_benchmark_operation(
             setup=lambda: adapter_instance,
             run=lambda target: OMMXFixstarsAmplifyAdapter(target).solver_input,
         )
+
+    if operation != "result-to-solution":
+        raise ValueError(f"Unknown operation: {operation}")
 
     token = os.environ.get("AMPLIFY_TOKEN")
     if not token:

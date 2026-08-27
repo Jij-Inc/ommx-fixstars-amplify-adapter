@@ -58,7 +58,13 @@ PreparationはコピーしたInstanceへ
 `prepare` はInstanceの生成、コピー、Policy生成を測定外とし、`Instance.prepare()`だけを測定します。
 `instance-to-model` は `preparation=recommended` の場合だけPreparationを測定外で済ませ、Adapterの生成だけを測定します。
 `result-to-solution` は必要なPreparationとAmplifyでの求解を測定外で一度行い、`adapter.decode(result)`だけを測定します。
-時間測定では、プロセス内でウォームアップ前の初回実行時間と、ウォームアップ後20回の中央値を記録します。
+`end-to-end` は `preparation=none` なら `solve_without_preparation()`、
+`preparation=recommended` なら `solve()` を使い、公開API全体を測定します。
+後者にはInstanceのコピー、Preparation、Adapter変換、Amplify求解、decodeが含まれます。
+E2Eは通信とリモート求解の変動を含む補助指標であり、PreparationやAdapter固有の変化は分解測定で判断します。
+時間測定では、プロセス内でウォームアップ前の初回実行時間と中央値を記録します。
+既定値はE2E以外がwarmup 3回・repeat 20回、E2Eがwarmupなし・repeat 3回です。
+実際の値はCSVの `warmup` / `repeat` 列にも記録されます。
 メモリ測定では、ウォームアップ前の初回実行と、その実行をウォームアップとした2回目のピークメモリを記録します。
 時間計測中はGCを停止します。
 求解準備で使用するsolver time limitは、Amplify APIの上限に合わせて既定値の10秒です。
@@ -125,6 +131,26 @@ for special_constraints in indicator sos1 indicator-sos1; do
     done
   done
 done
+
+# Preparation不要のE2E: solve_without_preparation()
+for size in 10 20 30; do
+  uv run --frozen python benchmarks/timing.py end-to-end \
+    --instance tsp --formulation one-hot --size "$size" \
+    | tee "benchmark_results/v3-one-hot-end-to-end-timing-${size}.csv"
+done
+
+# 同じ数学的モデルをdirect/preparedの公開APIでE2E比較
+for special_constraints in indicator sos1 indicator-sos1; do
+  for size in 10 20 30; do
+    for preparation in none recommended; do
+      uv run --frozen python benchmarks/timing.py end-to-end \
+        --instance one-hot-preparation --formulation one-hot \
+        --special-constraints "$special_constraints" \
+        --preparation "$preparation" --size "$size" \
+        | tee "benchmark_results/v3-${special_constraints}-${preparation}-end-to-end-timing-${size}.csv"
+    done
+  done
+done
 ```
 
 ## ピークメモリ
@@ -144,6 +170,16 @@ uv run --frozen --with memray python benchmarks/memory.py prepare \
   --preparation recommended --size 20
 
 uv run --frozen --with memray python benchmarks/memory.py instance-to-model \
+  --instance one-hot-preparation --formulation one-hot \
+  --special-constraints indicator-sos1 \
+  --preparation recommended --size 20
+
+uv run --frozen --with memray python benchmarks/memory.py end-to-end \
+  --instance one-hot-preparation --formulation one-hot \
+  --special-constraints indicator-sos1 \
+  --preparation none --size 20
+
+uv run --frozen --with memray python benchmarks/memory.py end-to-end \
   --instance one-hot-preparation --formulation one-hot \
   --special-constraints indicator-sos1 \
   --preparation recommended --size 20

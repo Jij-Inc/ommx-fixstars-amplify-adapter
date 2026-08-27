@@ -6,6 +6,7 @@ import time
 from common import (
     FORMULATIONS,
     INSTANCE_NAMES,
+    OPERATIONS,
     PACKAGE_VERSIONS,
     PREPARATIONS,
     SPECIAL_CONSTRAINT_CASES,
@@ -16,9 +17,7 @@ from common import (
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "operation", choices=("prepare", "instance-to-model", "result-to-solution")
-    )
+    parser.add_argument("operation", choices=OPERATIONS)
     parser.add_argument("--instance", choices=INSTANCE_NAMES, default="tsp")
     parser.add_argument("--formulation", choices=FORMULATIONS, default="regular")
     parser.add_argument(
@@ -27,10 +26,18 @@ def main() -> None:
     parser.add_argument("--preparation", choices=PREPARATIONS, default="none")
     parser.add_argument("--size", required=True, type=int)
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--warmup", type=int, default=3)
-    parser.add_argument("--repeat", type=int, default=20)
+    parser.add_argument("--warmup", type=int)
+    parser.add_argument("--repeat", type=int)
     parser.add_argument("--solver-time-limit-ms", type=int, default=10_000)
     args = parser.parse_args()
+    default_warmup = 0 if args.operation == "end-to-end" else 3
+    default_repeat = 3 if args.operation == "end-to-end" else 20
+    warmup = args.warmup if args.warmup is not None else default_warmup
+    repeat = args.repeat if args.repeat is not None else default_repeat
+    if warmup < 0:
+        parser.error("--warmup must be non-negative")
+    if repeat < 1:
+        parser.error("--repeat must be positive")
 
     try:
         instance = build_instance(
@@ -53,7 +60,8 @@ def main() -> None:
 
     print(
         "operation,instance,formulation,special_constraints,preparation,size,"
-        "first_seconds,median_seconds,ommx_version,amplify_version,adapter_version"
+        "warmup,repeat,first_seconds,median_seconds,ommx_version,amplify_version,"
+        "adapter_version"
     )
 
     gc_was_enabled = gc.isenabled()
@@ -70,7 +78,7 @@ def main() -> None:
         if gc_was_enabled:
             gc.enable()
 
-    for _ in range(args.warmup):
+    for _ in range(warmup):
         context = benchmark.setup()
         result = benchmark.run(context)
         del result
@@ -80,7 +88,7 @@ def main() -> None:
     gc_was_enabled = gc.isenabled()
     gc.disable()
     try:
-        for _ in range(args.repeat):
+        for _ in range(repeat):
             gc.collect()
             context = benchmark.setup()
             start = time.perf_counter()
@@ -100,6 +108,8 @@ def main() -> None:
         args.special_constraints,
         args.preparation,
         args.size,
+        warmup,
+        repeat,
         f"{first_seconds:.9f}",
         f"{statistics.median(samples):.9f}",
         *PACKAGE_VERSIONS,

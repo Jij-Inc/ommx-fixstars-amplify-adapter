@@ -7,6 +7,7 @@ import pytest
 from conftest import assert_amplify_model
 from ommx import ProvenanceKind, SpecialConstraintKind, State
 
+from benchmarks.common import make_benchmark_operation
 from benchmarks.instance import build_one_hot_preparation_instance
 from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
 
@@ -114,3 +115,49 @@ def test_direct_source_and_prepared_cases_have_the_same_feasible_states(
             evaluation = instance.evaluate(State(entries=entries))
             assert evaluation.feasible == expected.feasible
             assert evaluation.objective == expected.objective
+
+
+@pytest.mark.parametrize(
+    ("preparation", "method_name"),
+    [
+        ("none", "solve_without_preparation"),
+        ("recommended", "solve"),
+    ],
+)
+def test_end_to_end_uses_the_preparation_appropriate_api(
+    monkeypatch,
+    preparation,
+    method_name,
+):
+    instance = build_one_hot_preparation_instance(
+        2,
+        special_constraints="indicator",
+        preparation=preparation,
+    )
+    expected_solution = object()
+    calls = []
+
+    def fake_solve(cls, target, *, amplify_token, timeout):
+        calls.append((cls, target, amplify_token, timeout))
+        return expected_solution
+
+    monkeypatch.setenv("AMPLIFY_TOKEN", "test-token")
+    monkeypatch.setattr(
+        OMMXFixstarsAmplifyAdapter,
+        method_name,
+        classmethod(fake_solve),
+    )
+
+    benchmark = make_benchmark_operation(
+        "end-to-end",
+        instance,
+        solver_time_limit_ms=1234,
+        special_constraints="indicator",
+        preparation=preparation,
+    )
+    context = benchmark.setup()
+    solution = benchmark.run(context)
+
+    assert context is instance
+    assert solution is expected_solution
+    assert calls == [(OMMXFixstarsAmplifyAdapter, instance, "test-token", 1234)]
