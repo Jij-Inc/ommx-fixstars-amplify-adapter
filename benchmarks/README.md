@@ -58,7 +58,12 @@ OneHotグループを持つ比較基準です。OMMX v2にはfirst-classなIndic
 
 `instance-to-model` はAdapterの生成だけを測定します。
 `result-to-solution` はAmplifyでの求解を測定外で一度行い、`adapter.decode(result)`だけを測定します。
-時間測定では、プロセス内でウォームアップ前の初回実行時間と、ウォームアップ後20回の中央値を記録します。
+`end-to-end` はv2の `solve()` を使い、Adapter変換、Amplify求解、decodeを含む公開API全体を測定します。
+v2にはPreparationがないため、このAPIはv3の `solve_without_preparation()` に対応します。
+E2Eは通信とリモート求解の変動を含む補助指標であり、Adapter固有の変化は分解測定で判断します。
+時間測定では、プロセス内でウォームアップ前の初回実行時間と中央値を記録します。
+既定値はE2E以外がwarmup 3回・repeat 20回、E2Eがwarmupなし・repeat 3回です。
+実際の値はCSVの `warmup` / `repeat` 列にも記録されます。
 メモリ測定では、ウォームアップ前の初回実行と、その実行をウォームアップとした2回目のピークメモリを記録します。
 時間計測中はGCを停止します。
 求解準備で使用するsolver time limitは、Amplify APIの上限に合わせて既定値の10秒です。
@@ -113,6 +118,21 @@ for size in 10 20 30; do
     --instance tsp --formulation one-hot --size "$size" \
     | tee "benchmark_results/v2-one-hot-result-to-solution-timing-${size}.csv"
 done
+
+for size in 10 20 30; do
+  uv run --frozen python benchmarks/timing.py end-to-end \
+    --instance tsp --formulation one-hot --size "$size" \
+    | tee "benchmark_results/v2-one-hot-end-to-end-timing-${size}.csv"
+done
+
+for special_constraints in indicator sos1 indicator-sos1; do
+  for size in 10 20 30; do
+    uv run --frozen python benchmarks/timing.py end-to-end \
+      --instance one-hot-preparation --formulation one-hot \
+      --special-constraints "$special_constraints" --size "$size" \
+      | tee "benchmark_results/v2-${special_constraints}-end-to-end-timing-${size}.csv"
+  done
+done
 ```
 
 ## ピークメモリ
@@ -127,6 +147,10 @@ uv run --frozen --with memray python benchmarks/memory.py instance-to-model \
   --instance tsp --formulation one-hot --size 20
 
 uv run --frozen --with memray python benchmarks/memory.py instance-to-model \
+  --instance one-hot-preparation --formulation one-hot \
+  --special-constraints indicator-sos1 --size 20
+
+uv run --frozen --with memray python benchmarks/memory.py end-to-end \
   --instance one-hot-preparation --formulation one-hot \
   --special-constraints indicator-sos1 --size 20
 ```

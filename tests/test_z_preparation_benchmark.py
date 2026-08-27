@@ -5,6 +5,7 @@ import itertools
 import pytest
 from ommx.v1 import Constraint, State
 
+from benchmarks.common import make_benchmark_operation
 from benchmarks.instance import build_one_hot_preparation_instance
 from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
 
@@ -92,3 +93,35 @@ def test_one_hot_preparation_counterparts_have_the_same_feasible_states(
         actual = counterpart.evaluate(State(entries=entries))
         assert actual.feasible == expected.feasible
         assert actual.objective == expected.objective
+
+
+def test_end_to_end_uses_v2_solve(monkeypatch):
+    instance = build_one_hot_preparation_instance(
+        2,
+        special_constraints="indicator",
+    )
+    expected_solution = object()
+    calls = []
+
+    def fake_solve(cls, target, *, amplify_token, timeout):
+        calls.append((cls, target, amplify_token, timeout))
+        return expected_solution
+
+    monkeypatch.setenv("AMPLIFY_TOKEN", "test-token")
+    monkeypatch.setattr(
+        OMMXFixstarsAmplifyAdapter,
+        "solve",
+        classmethod(fake_solve),
+    )
+
+    benchmark = make_benchmark_operation(
+        "end-to-end",
+        instance,
+        solver_time_limit_ms=1234,
+    )
+    context = benchmark.setup()
+    solution = benchmark.run(context)
+
+    assert context is instance
+    assert solution is expected_solution
+    assert calls == [(OMMXFixstarsAmplifyAdapter, instance, "test-token", 1234)]
