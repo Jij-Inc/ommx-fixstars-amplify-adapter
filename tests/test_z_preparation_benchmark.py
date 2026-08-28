@@ -95,10 +95,11 @@ def test_one_hot_preparation_counterparts_have_the_same_feasible_states(
         assert actual.objective == expected.objective
 
 
-def test_end_to_end_uses_v2_solve(monkeypatch):
+@pytest.mark.parametrize("special_constraints", ["none", "indicator"])
+def test_end_to_end_uses_v2_solve(monkeypatch, special_constraints):
     instance = build_one_hot_preparation_instance(
         2,
-        special_constraints="indicator",
+        special_constraints=special_constraints,
     )
     expected_solution = object()
     calls = []

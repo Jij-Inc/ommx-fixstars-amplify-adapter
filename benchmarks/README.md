@@ -70,6 +70,15 @@ E2Eは通信とリモート求解の変動を含む補助指標であり、Adapt
 時間計測中はGCを停止します。
 求解準備で使用するsolver time limitは、Amplify APIの上限に合わせて既定値の10秒です。
 
+全推奨サイズを測定する場合のパターン数は次のとおりです。
+
+| Operation | 通常問題 | `one-hot-preparation` | 合計 |
+| --- | ---: | ---: | ---: |
+| `instance-to-model` | 30 | 12 | 42 |
+| `result-to-solution` | 30 | 12 | 42 |
+| `end-to-end` | 3 | 12 | 15 |
+| **合計** | **63** | **36** | **99** |
+
 ## 処理時間
 
 ```console
@@ -121,7 +130,7 @@ for size in 10 20 30; do
     | tee "benchmark_results/v2-one-hot-end-to-end-timing-${size}.csv"
 done
 
-for special_constraints in indicator sos1 indicator-sos1; do
+for special_constraints in none indicator sos1 indicator-sos1; do
   for size in 10 20 30; do
     uv run --frozen python benchmarks/timing.py end-to-end \
       --instance one-hot-preparation --formulation one-hot \
