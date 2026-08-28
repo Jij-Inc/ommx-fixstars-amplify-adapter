@@ -69,6 +69,18 @@ E2Eは通信とリモート求解の変動を含む補助指標であり、Prepa
 時間計測中はGCを停止します。
 求解準備で使用するsolver time limitは、Amplify APIの上限に合わせて既定値の10秒です。
 
+全推奨サイズを測定する場合のパターン数は次のとおりです。
+`one-hot-preparation` の `none` はOneHotだけを持つbaselineであり、
+`prepare` はlowering対象のある3ケースだけを測定します。
+
+| Operation | 通常問題 | `one-hot-preparation` | 合計 |
+| --- | ---: | ---: | ---: |
+| `instance-to-model` | 36 | 21 | 57 |
+| `result-to-solution` | 36 | 21 | 57 |
+| `prepare` | 0 | 9 | 9 |
+| `end-to-end` | 6 | 21 | 27 |
+| **合計** | **78** | **72** | **150** |
+
 ## 処理時間
 
 ```console
@@ -83,6 +95,13 @@ for size in 10 20 30; do
   uv run --frozen python benchmarks/timing.py instance-to-model \
     --instance tsp --formulation one-hot --size "$size" \
     | tee "benchmark_results/v3-one-hot-instance-to-model-timing-${size}.csv"
+done
+
+for size in 10 20 30; do
+  uv run --frozen python benchmarks/timing.py instance-to-model \
+    --instance one-hot-preparation --formulation one-hot \
+    --special-constraints none --preparation none --size "$size" \
+    | tee "benchmark_results/v3-none-none-instance-to-model-timing-${size}.csv"
 done
 
 for special_constraints in indicator sos1 indicator-sos1; do
@@ -120,6 +139,13 @@ for size in 10 20 30; do
     | tee "benchmark_results/v3-one-hot-result-to-solution-timing-${size}.csv"
 done
 
+for size in 10 20 30; do
+  uv run --frozen python benchmarks/timing.py result-to-solution \
+    --instance one-hot-preparation --formulation one-hot \
+    --special-constraints none --preparation none --size "$size" \
+    | tee "benchmark_results/v3-none-none-result-to-solution-timing-${size}.csv"
+done
+
 for special_constraints in indicator sos1 indicator-sos1; do
   for size in 10 20 30; do
     for preparation in none recommended; do
@@ -132,11 +158,21 @@ for special_constraints in indicator sos1 indicator-sos1; do
   done
 done
 
-# Preparation不要のE2E: solve_without_preparation()
+# v2と同じ通常制約経路とOneHot直接変換のE2E比較
+for formulation in regular one-hot; do
+  for size in 10 20 30; do
+    uv run --frozen python benchmarks/timing.py end-to-end \
+      --instance tsp --formulation "$formulation" --size "$size" \
+      | tee "benchmark_results/v3-${formulation}-end-to-end-timing-${size}.csv"
+  done
+done
+
+# OneHotだけを持つPreparation比較用baseline
 for size in 10 20 30; do
   uv run --frozen python benchmarks/timing.py end-to-end \
-    --instance tsp --formulation one-hot --size "$size" \
-    | tee "benchmark_results/v3-one-hot-end-to-end-timing-${size}.csv"
+    --instance one-hot-preparation --formulation one-hot \
+    --special-constraints none --preparation none --size "$size" \
+    | tee "benchmark_results/v3-none-none-end-to-end-timing-${size}.csv"
 done
 
 # 同じ数学的モデルをdirect/preparedの公開APIでE2E比較
