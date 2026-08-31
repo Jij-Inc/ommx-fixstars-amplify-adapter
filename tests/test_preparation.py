@@ -55,11 +55,15 @@ def test_rejects_unsupported_special_constraints_without_mutating_input():
     assert InstanceClassMismatch.Sos1ConstraintsNotAllowed in mismatch_types
     assert instance.to_v2_bytes() == before
 
-    with pytest.raises(AdapterNotApplicableError):
+    with pytest.raises(AdapterNotApplicableError) as error:
         OMMXFixstarsAmplifyAdapter.solve_without_preparation(
             instance,
             amplify_token="dummy",
         )
+    mismatches = error.value.report.clause_reports[0].mismatches
+    mismatch_types = {type(mismatch) for mismatch in mismatches}
+    assert InstanceClassMismatch.IndicatorConstraintsNotAllowed in mismatch_types
+    assert InstanceClassMismatch.Sos1ConstraintsNotAllowed in mismatch_types
     assert instance.to_v2_bytes() == before
 
 
