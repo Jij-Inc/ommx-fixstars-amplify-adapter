@@ -1,3 +1,4 @@
+import math
 import typing
 from dataclasses import dataclass
 
@@ -221,7 +222,7 @@ class OMMXInstanceBuilder:
         # `lhs - rhs == 0`, so one_hot must have constant term -1 there.
         # Example: `x0 + x1 + x2 == 1` gives `0 - 1 == -1` and is one_hot.
         # Counterexample: `x0 + x1 + x2 == 0` gives `0 - 0 == 0`.
-        if poly_dict.get((), 0.0) - rhs != -1.0:
+        if not math.isclose(poly_dict.get((), 0.0) - rhs, -1.0):
             return None
 
         variable_types = {var.id: var.type for var in poly.variables}
@@ -232,7 +233,7 @@ class OMMXInstanceBuilder:
                 continue
             if len(key) != 1:
                 return None
-            if coefficient != 1.0:
+            if not math.isclose(coefficient, 1.0):
                 return None
 
             variable_id = key[0]
