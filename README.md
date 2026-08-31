@@ -35,18 +35,14 @@ sequenceDiagram
 For example, the following problem formulated in OMMX can be solved using Fixstars Amplify.
 
 ```python
-from ommx import Instance, DecisionVariable
+from ommx import Instance
 from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
 
-q_0 = DecisionVariable.binary(id=0, name="q_0")
-q_1 = DecisionVariable.binary(id=1, name="q_1")
-
-ommx_instance = Instance.from_components(
-    decision_variables=[q_0, q_1],
-    objective=q_0 * q_1 + q_0 - q_1 + 1,
-    constraints={0: q_0 + q_1 == 1},
-    sense=Instance.MAXIMIZE,
-)
+ommx_instance = Instance.maximize()
+q_0 = ommx_instance.new_binary("q_0")
+q_1 = ommx_instance.new_binary("q_1")
+ommx_instance.objective = q_0 * q_1 + q_0 - q_1 + 1
+ommx_instance.add_constraint(q_0 + q_1 == 1)
 
 token = "***FIXSTARS AMPLIFY TOKEN***"
 solution = OMMXFixstarsAmplifyAdapter.solve(ommx_instance, amplify_token=token)
