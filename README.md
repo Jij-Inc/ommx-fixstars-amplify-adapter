@@ -53,32 +53,6 @@ solution = OMMXFixstarsAmplifyAdapter.solve(ommx_instance, amplify_token=token)
 print(solution.decision_variables_df())
 ```
 
-### Preparing an Instance
-
-The `solve()` API does not modify the input instance. It prepares an isolated
-copy with the adapter's recommended policy before solving. Fixstars Amplify
-accepts OneHot constraints directly, so the recommended policy preserves
-OneHot constraints and lowers only Indicator and SOS1 constraints to regular
-constraints.
-
-When an application needs a custom preparation policy, prepare the instance
-explicitly and use the preparation-free API:
-
-```python
-input_class = OMMXFixstarsAmplifyAdapter.INPUT_CLASS
-policy = OMMXFixstarsAmplifyAdapter.recommended_preparation_policy()
-# Edit the policy here if needed.
-
-ommx_instance.prepare(input_class, policy)
-solution = OMMXFixstarsAmplifyAdapter.solve_without_preparation(
-    ommx_instance,
-    amplify_token=token,
-)
-```
-
-`solve_without_preparation()` is strict: it does not prepare or otherwise
-modify the input and rejects instances outside the adapter's `INPUT_CLASS`.
-
 ## Solve problems formulated in Fixstars Amplify SDK with other solvers
 
 The `ommx-fixstars-amplify-adapter` allows problems formulated in Fixstars Amplify SDK to be solved in other solvers.

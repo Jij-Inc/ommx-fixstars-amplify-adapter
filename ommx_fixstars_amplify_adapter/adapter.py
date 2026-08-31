@@ -93,6 +93,11 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         The input instance is not modified; an isolated copy is prepared with the
         recommended Fixstars Amplify policy before preparation-free execution.
 
+        ``diagnostics`` are not available through this Adapter.
+        The reserved ``diagnostics`` argument is accepted for compatibility with
+        the OMMX SolverAdapter interface, but is currently unused even when a sink
+        is provided.
+
         **NOTE** The `amplify_token` parameter _must_ be passed to properly
           instantiate the Fixstars Amplify AE Client. Using the default value will result
           in an error.
@@ -139,7 +144,28 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         timeout: int = 1000,
         diagnostics: DiagnosticsSink | None = None,
     ) -> Solution:
-        """Solve an exact Fixstars Amplify Adapter input without preparing it."""
+        """Solve an exact Fixstars Amplify Adapter input without preparing it.
+
+        Unlike :meth:`solve`, this method does not copy, prepare, or otherwise
+        modify ``ommx_instance``. The input must already belong to
+        :attr:`INPUT_CLASS`; use this method when the instance has been prepared
+        explicitly with a custom policy or is already an exact Adapter input.
+
+        ``diagnostics`` are not available through this Adapter.
+        The reserved ``diagnostics`` argument is accepted for compatibility with
+        the OMMX SolverAdapter interface, but is currently unused even when a sink
+        is provided.
+
+        **NOTE** The ``amplify_token`` parameter *must* be passed to properly
+          instantiate the Fixstars Amplify AE Client. Using the default value will
+          result in an error.
+
+        :param ommx_instance: The exact Fixstars Amplify Adapter input to solve.
+        :param amplify_token: Token for instantiating the Fixstars Amplify AE
+          Client, obtained from your Fixstars Amplify account.
+        :param timeout: Timeout passed to the client.
+        :param diagnostics: Reserved diagnostics sink; currently unused.
+        """
         if amplify_token == "":
             raise OMMXFixstarsAmplifyAdapterError(
                 "No Fixstars Amplify token specified -- cannot instantiate client"
