@@ -307,6 +307,12 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             self.model += obj_poly
         elif self.instance.sense == Instance.MAXIMIZE:
             self.model += -obj_poly
+        else:
+            raise AssertionError(
+                "Unsupported objective sense reached after applicability validation: "
+                f"{self.instance.sense}. This may indicate an OMMX implementation "
+                "bug; please report it to OMMX."
+            )
 
     def _set_constraints(self):
         # Handle one_hot constraints
@@ -335,6 +341,12 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             elif constr.equality == Constraint.LESS_THAN_OR_EQUAL_TO_ZERO:
                 self.model += amplify.less_equal(
                     function_poly, 0, label=f"{constr.name} [id: {constr_id}]"
+                )
+            else:
+                raise AssertionError(
+                    "Unsupported constraint equality reached after applicability "
+                    f"validation: {constr.equality} for constraint {constr_id}. This "
+                    "may indicate an OMMX implementation bug; please report it to OMMX."
                 )
 
     def _function_to_poly(
