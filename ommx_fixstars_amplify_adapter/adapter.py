@@ -294,6 +294,12 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
                     bounds=(var.bound.lower, var.bound.upper),
                     name=_make_variable_label(var),
                 )
+            else:
+                raise AssertionError(
+                    "Unsupported decision variable kind reached after applicability "
+                    f"validation: {var.kind}. This may indicate an OMMX implementation "
+                    "bug; please report it to OMMX."
+                )
 
     def _set_objective(self):
         obj_poly = self._function_to_poly(self.instance.objective)
