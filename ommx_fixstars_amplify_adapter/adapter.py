@@ -90,13 +90,9 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         """Solve the given ommx.Instance using Fixstars Amplify AE, returning an
         ommx.Solution.
 
-        The input instance is not modified; an isolated copy is prepared with the
-        recommended Fixstars Amplify policy before preparation-free execution.
-
         ``diagnostics`` are not available through this Adapter.
         The reserved ``diagnostics`` argument is accepted for compatibility with
-        the OMMX SolverAdapter interface, but is currently unused even when a sink
-        is provided.
+        the OMMX SolverAdapter interface.
 
         **NOTE** The `amplify_token` parameter _must_ be passed to properly
           instantiate the Fixstars Amplify AE Client. Using the default value will result
@@ -105,7 +101,8 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         :param ommx_instance: The ommx.Instance to prepare and solve.
         :param amplify_token: Token for instantiating the Fixstars Amplify AE Client, obtained from your Fixstars Amplify account.
         :param timeout: Timeout passed to the client.
-        :param diagnostics: Reserved diagnostics sink; currently unused.
+        :param diagnostics: Reserved for OMMX SolverAdapter compatibility;
+          currently unused.
 
         Example:
         =========
@@ -146,15 +143,12 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
     ) -> Solution:
         """Solve an exact Fixstars Amplify Adapter input without preparing it.
 
-        Unlike :meth:`solve`, this method does not copy, prepare, or otherwise
-        modify ``ommx_instance``. The input must already belong to
-        :attr:`INPUT_CLASS`; use this method when the instance has been prepared
-        explicitly with a custom policy or is already an exact Adapter input.
+        Use this method when the input instance has already been prepared,
+        possibly with a custom policy, or already belongs to ``INPUT_CLASS``.
 
         ``diagnostics`` are not available through this Adapter.
         The reserved ``diagnostics`` argument is accepted for compatibility with
-        the OMMX SolverAdapter interface, but is currently unused even when a sink
-        is provided.
+        the OMMX SolverAdapter interface.
 
         **NOTE** The ``amplify_token`` parameter *must* be passed to properly
           instantiate the Fixstars Amplify AE Client. Using the default value will
@@ -164,13 +158,15 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         :param amplify_token: Token for instantiating the Fixstars Amplify AE
           Client, obtained from your Fixstars Amplify account.
         :param timeout: Timeout passed to the client.
-        :param diagnostics: Reserved diagnostics sink; currently unused.
+        :param diagnostics: Reserved for OMMX SolverAdapter compatibility;
+          currently unused.
         """
         if amplify_token == "":
             raise OMMXFixstarsAmplifyAdapterError(
                 "No Fixstars Amplify token specified -- cannot instantiate client"
             )
 
+        # TODO: Update the diagnostics docstrings when support is implemented.
         _ = diagnostics
         adapter = cls(ommx_instance)
 
