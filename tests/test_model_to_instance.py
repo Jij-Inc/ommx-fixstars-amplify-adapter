@@ -1,6 +1,6 @@
 import amplify
 import pytest
-from ommx.v1 import Constraint, DecisionVariable
+from ommx import Constraint, DecisionVariable
 
 from ommx_fixstars_amplify_adapter.amplify_to_ommx import (
     model_to_instance,
@@ -11,7 +11,7 @@ from ommx_fixstars_amplify_adapter.exception import OMMXFixstarsAmplifyAdapterEr
 
 def test_model_to_instance():
     """
-    The function that converts from amplify.Model to ommx.v1.Instance.
+    The function that converts from amplify.Model to ommx.Instance.
 
     Minimize: 2xyz + 3yz + 4z + 5
     Subject to:
@@ -75,7 +75,7 @@ def test_model_to_instance():
     assert len(ommx_instance.constraints) == 5
 
     # Check the first constraint: 6x + 7y + 8z -9 <= 0
-    ommx_constraint_first = ommx_instance.get_constraint_by_id(0)
+    ommx_constraint_first = ommx_instance.constraints[0]
     assert ommx_constraint_first.equality == Constraint.LESS_THAN_OR_EQUAL_TO_ZERO
     assert ommx_constraint_first.function.terms == {
         (0,): 6.0,
@@ -85,7 +85,7 @@ def test_model_to_instance():
     }
 
     # Check the second constraint: 10xy + 11yz + 12xz -13 = 0
-    ommx_constraint_second = ommx_instance.get_constraint_by_id(1)
+    ommx_constraint_second = ommx_instance.constraints[1]
     assert ommx_constraint_second.equality == Constraint.EQUAL_TO_ZERO
     assert ommx_constraint_second.function.terms == {
         (0, 1): 10.0,
@@ -95,7 +95,7 @@ def test_model_to_instance():
     }
 
     # Check the third constraint: 14xyz -15 >= 0
-    ommx_constraint_third = ommx_instance.get_constraint_by_id(2)
+    ommx_constraint_third = ommx_instance.constraints[2]
     assert ommx_constraint_third.equality == Constraint.LESS_THAN_OR_EQUAL_TO_ZERO
     assert ommx_constraint_third.function.terms == {
         (0, 1, 2): -14.0,
@@ -103,7 +103,7 @@ def test_model_to_instance():
     }
 
     # Check the fourth constraint: 16 <= w <= 17
-    ommx_constraint_fourth_lower = ommx_instance.get_constraint_by_id(3)
+    ommx_constraint_fourth_lower = ommx_instance.constraints[3]
     assert (
         ommx_constraint_fourth_lower.equality == Constraint.LESS_THAN_OR_EQUAL_TO_ZERO
     )
@@ -111,7 +111,7 @@ def test_model_to_instance():
         (3,): -1.0,
         (): 16.0,
     }
-    ommx_constraint_fourth_upper = ommx_instance.get_constraint_by_id(4)
+    ommx_constraint_fourth_upper = ommx_instance.constraints[4]
     assert (
         ommx_constraint_fourth_upper.equality == Constraint.LESS_THAN_OR_EQUAL_TO_ZERO
     )
@@ -146,6 +146,66 @@ def test_builder_decision_variable():
     assert decision_variable[2].kind == DecisionVariable.CONTINUOUS
     assert decision_variable[2].bound.lower == -30
     assert decision_variable[2].bound.upper == 30
+
+
+def test_model_to_instance_one_hot_constraint():
+    gen = amplify.VariableGenerator()
+    x = [gen.scalar("Binary", name=f"x_{i}") for i in range(3)]
+    model = amplify.Model()
+    model += amplify.one_hot(x[0] + x[1] + x[2], label="one_hot_constraint")
+
+    ommx_instance = model_to_instance(model)
+
+    assert len(ommx_instance.constraints) == 0
+    assert len(ommx_instance.one_hot_constraints) == 1
+    one_hot_constraint = ommx_instance.one_hot_constraints[0]
+    assert one_hot_constraint.variables == [0, 1, 2]
+    assert one_hot_constraint.name == "one_hot_constraint"
+
+
+def test_model_to_instance_regular_and_one_hot_constraints():
+    gen = amplify.VariableGenerator()
+    x = [gen.scalar("Binary", name=f"x_{i}") for i in range(3)]
+    model = amplify.Model()
+    model += x[0] + 2 * x[1]
+    model += amplify.less_equal(3 * x[0] + 5 * x[2], 1, label="regular_constraint")
+    model += amplify.one_hot(x[0] + x[1] + x[2], label="one_hot_constraint")
+
+    ommx_instance = model_to_instance(model)
+
+    assert len(ommx_instance.one_hot_constraints) == 1
+    one_hot_constraint = ommx_instance.one_hot_constraints[0]
+    assert one_hot_constraint.variables == [0, 1, 2]
+    assert one_hot_constraint.name == "one_hot_constraint"
+
+    assert len(ommx_instance.constraints) == 1
+    constraint = ommx_instance.constraints[0]
+    assert constraint.equality == Constraint.LESS_THAN_OR_EQUAL_TO_ZERO
+    assert constraint.function.terms == {
+        (0,): 3.0,
+        (2,): 5.0,
+        (): -1.0,
+    }
+    assert constraint.name == "regular_constraint"
+
+
+def test_model_to_instance_does_not_detect_non_one_hot_equalities():
+    gen = amplify.VariableGenerator()
+    x = gen.scalar("Binary", name="x")
+    y = gen.scalar("Binary", name="y")
+    z = gen.scalar("Integer", name="z")
+    model = amplify.Model()
+    model += amplify.equal_to(x + 2 * y, 1, label="binary_sum")
+    model += amplify.equal_to(x + z, 1, label="mixed_variable_sum")
+    model += amplify.equal_to(x + y, 0, label="wrong_rhs")
+
+    ommx_instance = model_to_instance(model)
+
+    assert len(ommx_instance.one_hot_constraints) == 0
+    assert len(ommx_instance.constraints) == 3
+    assert ommx_instance.constraints[0].name == "binary_sum"
+    assert ommx_instance.constraints[1].name == "mixed_variable_sum"
+    assert ommx_instance.constraints[2].name == "wrong_rhs"
 
 
 def test_error_ising_variable():

@@ -23,7 +23,7 @@ sequenceDiagram
     participant U as User
     participant A as Adapter
     participant P as Fixstars Amplify
-    U->>A: ommx.v1.Instance
+    U->>A: ommx.Instance
     A->>U: amplify.Model
     U->>P: amplify.Model and parameters for solvers;
     P->>P: Solve with Fixstars Amplify
@@ -35,22 +35,18 @@ sequenceDiagram
 For example, the following problem formulated in OMMX can be solved using Fixstars Amplify.
 
 ```python
-from ommx.v1 import Instance, DecisionVariable
+from ommx import Instance
 from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
 
-q_0 = DecisionVariable.binary(id=0, name="q_0")
-q_1 = DecisionVariable.binary(id=1, name="q_1")
-
-ommx_instance = Instance.from_components(
-    decision_variables=[q_0, q_1],
-    objective=q_0 * q_1 + q_0 - q_1 + 1,
-    constraints=[q_0 + q_1 == 1],
-    sense=Instance.MAXIMIZE,
-)
+ommx_instance = Instance.maximize()
+q_0 = ommx_instance.new_binary("q_0")
+q_1 = ommx_instance.new_binary("q_1")
+ommx_instance.objective = q_0 * q_1 + q_0 - q_1 + 1
+ommx_instance.add_constraint(q_0 + q_1 == 1)
 
 token = "***FIXSTARS AMPLIFY TOKEN***"
 solution = OMMXFixstarsAmplifyAdapter.solve(ommx_instance, amplify_token=token)
-print(solution.decision_variables_df)
+print(solution.decision_variables_df())
 ```
 
 ## Solve problems formulated in Fixstars Amplify SDK with other solvers
@@ -63,10 +59,10 @@ sequenceDiagram
     participant A as Adapter
     participant O as Other OMMX toolchain
     U->>A: amplify.Model
-    A->>U: ommx.v1.Instance
-    U->>O: ommx.v1.Instance and parameters for other solver
+    A->>U: ommx.Instance
+    U->>O: ommx.Instance and parameters for other solver
     O->>O: Solve the instance with other solver using other adapter
-    O->>U: ommx.v1.State
+    O->>U: ommx.State
 ```
 
 For example, the following mixed integer programming problem formulated in Fixstars Amplify SDK can be solved using PythonMIP.
@@ -89,8 +85,8 @@ model += amplify.less_equal(x, 1)
 model += amplify.less_equal(20 * x + y, 100)
 
 ommx_instance = model_to_instance(model)
-solution = OMMXPythoMIPAdapter.solve(ommx_instance)
-print(solution.decision_variables_df)
+solution = OMMXPythonMIPAdapter.solve(ommx_instance)
+print(solution.decision_variables_df())
 ```
 
 > [!NOTE]

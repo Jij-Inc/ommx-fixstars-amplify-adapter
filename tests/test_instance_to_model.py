@@ -1,22 +1,25 @@
 import amplify
 import pytest
-from ommx.v1 import (
-    Instance,
+from ommx import (
     Constraint,
     DecisionVariable,
+    Equality,
+    Instance,
     Linear,
-    Quadratic,
+    OneHotConstraint,
     Polynomial,
+    Quadratic,
+    Sense,
 )
 
-from ommx_fixstars_amplify_adapter.exception import OMMXFixstarsAmplifyAdapterError
 from ommx_fixstars_amplify_adapter.adapter import OMMXFixstarsAmplifyAdapter
+from ommx_fixstars_amplify_adapter.exception import OMMXFixstarsAmplifyAdapterError
 from conftest import assert_amplify_model
 
 
 def test_instance_to_model():
     """
-    The function that converts from ommx.v1.Instance to amplify.Model.
+    The function that converts from ommx.Instance to amplify.Model.
 
     Minimize: 2xyz + 3yz + 4z + 5
     Subject to:
@@ -29,34 +32,15 @@ def test_instance_to_model():
         z: Continuous (lower bound: -30, upper bound: 30)
         w: Continuous (lower bound: -inf, upper bound: inf)
     """
-    # Definition of Decision Variables (ommx.v1.DecisionVariable)
+    # Definition of Decision Variables (ommx.DecisionVariable)
     decision_variables = [
-        DecisionVariable.of_type(
-            kind=DecisionVariable.BINARY, id=0, lower=0, upper=1, name="x"
+        DecisionVariable.binary(id=0, name="x"),
+        DecisionVariable.integer(id=1, lower=-20, upper=20, name="y"),
+        DecisionVariable.continuous(
+            id=2, lower=-30, upper=30, name="z", subscripts=[0]
         ),
-        DecisionVariable.of_type(
-            kind=DecisionVariable.INTEGER,
-            id=1,
-            lower=-20.0,
-            upper=20.0,
-            name="y",
-            subscripts=[],
-        ),
-        DecisionVariable.of_type(
-            kind=DecisionVariable.CONTINUOUS,
-            id=2,
-            lower=-30,
-            upper=30,
-            name="z",
-            subscripts=[0],
-        ),
-        DecisionVariable.of_type(
-            kind=DecisionVariable.CONTINUOUS,
-            id=3,
-            lower=float("-inf"),
-            upper=float("inf"),
-            name="w",
-            subscripts=[1, 2],
+        DecisionVariable.continuous(
+            id=3, lower=float("-inf"), upper=float("inf"), name="w", subscripts=[1, 2]
         ),
     ]
 
@@ -64,55 +48,55 @@ def test_instance_to_model():
     objective = Polynomial(terms={(0, 1, 2): 2.0, (1, 2): 3.0, (2,): 4.0, (): 5.0})
 
     # Definition of Constraints
-    constraints = []
+    constraints = {}
 
-    # constraint1: 6x + 7y + 8z - 9 <= 0
-    constraint1_func = Linear(terms={0: 6.0, 1: 7.0, 2: 8.0}, constant=-9.0)
-    constraint1 = Constraint(
-        function=constraint1_func,
+    # constraint0: 6x + 7y + 8z - 9 <= 0
+    constraint0_func = Linear(terms={0: 6.0, 1: 7.0, 2: 8.0}, constant=-9.0)
+    constraint0 = Constraint(
+        function=constraint0_func,
         equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
         name="constraintA",
     )
-    constraints.append(constraint1)
+    constraints[0] = constraint0
 
-    # constraint2: 10xy + 11yz + 12xz -13 = 0
-    constraint2_func = Quadratic(
+    # constraint1: 10xy + 11yz + 12xz -13 = 0
+    constraint1_func = Quadratic(
         columns=[0, 1, 0],
         rows=[1, 2, 2],
         values=[10.0, 11.0, 12.0],
         linear=Linear(terms={}, constant=-13.0),
     )
-    constraint2 = Constraint(
-        function=constraint2_func, equality=Constraint.EQUAL_TO_ZERO, name="constraintB"
+    constraint1 = Constraint(
+        function=constraint1_func, equality=Constraint.EQUAL_TO_ZERO, name="constraintB"
     )
-    constraints.append(constraint2)
+    constraints[1] = constraint1
 
-    # constraint3: 14xyz -15 >= 0
-    constraint3_func = Polynomial(terms={(0, 1, 2): 14.0, (): -15.0})
-    constraint3 = Constraint(
-        function=constraint3_func * -1,
+    # constraint2: 14xyz -15 >= 0
+    constraint2_func = Polynomial(terms={(0, 1, 2): 14.0, (): -15.0})
+    constraint2 = Constraint(
+        function=constraint2_func * -1,
         equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
         name="constraintC",
     )
-    constraints.append(constraint3)
+    constraints[2] = constraint2
 
-    # constraint4 :  w >= 16
-    constraint4_func = Linear(terms={3: 1.0}, constant=-16.0)
-    constraint4 = Constraint(
-        function=constraint4_func * -1,
+    # constraint3 :  w >= 16
+    constraint3_func = Linear(terms={3: 1.0}, constant=-16.0)
+    constraint3 = Constraint(
+        function=constraint3_func * -1,
         equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
         name="constraintD",
     )
-    constraints.append(constraint4)
+    constraints[3] = constraint3
 
-    # constraint5: w - 17 <= 0  (w <= 17)
-    constraint5_func = Linear(terms={3: 1.0}, constant=-17.0)
-    constraint5 = Constraint(
-        function=constraint5_func,
+    # constraint4: w - 17 <= 0  (w <= 17)
+    constraint4_func = Linear(terms={3: 1.0}, constant=-17.0)
+    constraint4 = Constraint(
+        function=constraint4_func,
         equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
         name="constraintE",
     )
-    constraints.append(constraint5)
+    constraints[4] = constraint4
 
     # Creating an OMMX instance
     instance = Instance.from_components(
@@ -151,28 +135,154 @@ def test_instance_to_model():
     assert_amplify_model(model, expected_model)
 
 
-def test_error_unsupported_variable_kind():
-    # Create OMMX instances with unsupported variable types
-    decision_variables = [
-        DecisionVariable.of_type(
-            kind=DecisionVariable.SEMI_INTEGER, id=0, lower=0, upper=10, name="x"
-        )
-    ]
-
-    constraint = Constraint(
-        function=Linear(terms={0: 1.0}, constant=-5.0),
-        equality=Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
+@pytest.mark.parametrize(
+    ("equality", "constant"),
+    [
+        (Equality.EqualToZero, 0.0),
+        (Equality.LessThanOrEqualToZero, -1.0),
+    ],
+)
+def test_skips_feasible_constant_constraint(
+    equality: Equality, constant: float
+) -> None:
+    instance = Instance.from_components(
+        decision_variables=[],
+        objective=0,
+        constraints={
+            0: Constraint(
+                function=constant,
+                equality=equality,
+            )
+        },
+        sense=Sense.Minimize,
     )
 
+    adapter = OMMXFixstarsAmplifyAdapter(instance)
+
+    assert len(adapter.solver_input.constraints) == 0
+
+
+@pytest.mark.parametrize(
+    ("equality", "constant"),
+    [
+        (Equality.EqualToZero, 1.0),
+        (Equality.LessThanOrEqualToZero, 1.0),
+    ],
+)
+def test_rejects_infeasible_constant_constraint(
+    equality: Equality, constant: float
+) -> None:
     instance = Instance.from_components(
-        decision_variables=decision_variables,
-        objective=Linear(terms={0: 1.0}),
-        constraints=[constraint],
+        decision_variables=[],
+        objective=0,
+        constraints={
+            0: Constraint(
+                function=constant,
+                equality=equality,
+            )
+        },
+        sense=Sense.Minimize,
+    )
+
+    with pytest.raises(
+        OMMXFixstarsAmplifyAdapterError,
+        match="Infeasible constant constraint was found: id 0",
+    ):
+        OMMXFixstarsAmplifyAdapter(instance)
+
+
+def test_one_hot_constraint():
+    x = [DecisionVariable.binary(i, name="x", subscripts=[i]) for i in range(3)]
+
+    instance = Instance.from_components(
+        decision_variables=x,
+        objective=0,
+        constraints={},
+        one_hot_constraints={
+            0: OneHotConstraint(variables=[x[0], x[1], x[2]], name="one_hot_constraint")
+        },
         sense=Instance.MINIMIZE,
     )
 
-    with pytest.raises(OMMXFixstarsAmplifyAdapterError):
-        OMMXFixstarsAmplifyAdapter(instance)
+    adapter = OMMXFixstarsAmplifyAdapter(instance)
+    model = adapter.solver_input
+
+    # Construct the expected model
+    gen = amplify.VariableGenerator()
+    y0 = gen.scalar("Binary", name="x_{0}")
+    y1 = gen.scalar("Binary", name="x_{1}")
+    y2 = gen.scalar("Binary", name="x_{2}")
+
+    expected_model = amplify.Model()
+    expected_model += amplify.one_hot(y0 + y1 + y2, label="one_hot_constraint [id: 0]")
+
+    assert_amplify_model(model, expected_model)
+
+
+def test_regular_and_one_hot_constraints():
+    x = [DecisionVariable.binary(i, name="x", subscripts=[i]) for i in range(3)]
+
+    instance = Instance.from_components(
+        decision_variables=x,
+        objective=x[0] + 2 * x[1],
+        constraints={0: 3 * x[0] + 5 * x[2] <= 1},
+        one_hot_constraints={
+            0: OneHotConstraint(variables=[x[0], x[1], x[2]], name="one_hot_constraint")
+        },
+        sense=Instance.MINIMIZE,
+    )
+
+    adapter = OMMXFixstarsAmplifyAdapter(instance)
+    model = adapter.solver_input
+
+    # Construct the expected model
+    gen = amplify.VariableGenerator()
+    y0 = gen.scalar("Binary", name="x_{0}")
+    y1 = gen.scalar("Binary", name="x_{1}")
+    y2 = gen.scalar("Binary", name="x_{2}")
+
+    expected_model = amplify.Model()
+    expected_model += y0 + 2 * y1
+    expected_model += amplify.one_hot(y0 + y1 + y2, label="one_hot_constraint [id: 0]")
+    expected_model += amplify.less_equal(3 * y0 + 5 * y2 - 1, 0, label="None [id: 0]")
+
+    assert_amplify_model(model, expected_model)
+
+
+def test_multiple_one_hot_constraints():
+    # 2x2 assignment: each variable belongs to one row and one column one-hot
+    x = [
+        DecisionVariable.binary(i, name="x", subscripts=[i // 2, i % 2])
+        for i in range(4)
+    ]
+    instance = Instance.from_components(
+        decision_variables=x,
+        objective=x[0] + 2 * x[3],
+        constraints={},
+        one_hot_constraints={
+            0: OneHotConstraint(variables=[x[0], x[1]], name="row"),
+            1: OneHotConstraint(variables=[x[2], x[3]], name="row"),
+            2: OneHotConstraint(variables=[x[0], x[2]], name="col"),
+            3: OneHotConstraint(variables=[x[1], x[3]], name="col"),
+        },
+        sense=Instance.MINIMIZE,
+    )
+
+    adapter = OMMXFixstarsAmplifyAdapter(instance)
+    model = adapter.solver_input
+
+    # Construct the expected model
+    gen = amplify.VariableGenerator()
+    y = [gen.scalar("Binary", name=f"x_{{{i // 2}, {i % 2}}}") for i in range(4)]
+
+    expected_model = amplify.Model()
+    expected_model += y[0] + 2 * y[3]
+    expected_model += amplify.one_hot(y[0] + y[1], label="row [id: 0]")
+    expected_model += amplify.one_hot(y[2] + y[3], label="row [id: 1]")
+    expected_model += amplify.one_hot(y[0] + y[2], label="col [id: 2]")
+    expected_model += amplify.one_hot(y[1] + y[3], label="col [id: 3]")
+
+    assert_amplify_model(model, expected_model)
 
 
 def test_partial_evaluate():
@@ -180,7 +290,7 @@ def test_partial_evaluate():
     instance = Instance.from_components(
         decision_variables=x,
         objective=1 * x[0] + 2 * x[1] + 3 * x[2],
-        constraints=[(1 * x[0] + 2 * x[1] + 3 * x[2] <= 2).set_id(0)],
+        constraints={0: 1 * x[0] + 2 * x[1] + 3 * x[2] <= 2},
         sense=Instance.MINIMIZE,
     )
     assert instance.used_decision_variables == x
@@ -245,14 +355,14 @@ def test_relax_constraint():
     instance = Instance.from_components(
         decision_variables=x,
         objective=x[0] + x[1],
-        constraints=[(x[0] + 2 * x[1] <= 1).set_id(0), (x[1] + x[2] <= 1).set_id(1)],
+        constraints={0: x[0] + 2 * x[1] <= 1, 1: x[1] + x[2] <= 1},
         sense=Instance.MINIMIZE,
     )
 
     assert instance.used_decision_variables == x
     instance.relax_constraint(1, "relax")
     # id for x[2] is listed as irrelevant
-    assert instance.decision_variable_analysis().irrelevant() == {x[2].id}
+    assert instance.irrelevant_decision_variable_ids() == {x[2].id}
 
     adapter = OMMXFixstarsAmplifyAdapter(instance)
     model = adapter.solver_input

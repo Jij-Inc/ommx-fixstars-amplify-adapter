@@ -1,12 +1,14 @@
+import math
 import typing
 from dataclasses import dataclass
 
 import amplify
-from ommx.v1 import (
+from ommx import (
     Constraint,
     DecisionVariable,
     Instance,
     Linear,
+    OneHotConstraint,
     Polynomial,
     Quadratic,
     Function,
@@ -18,7 +20,7 @@ from .exception import OMMXFixstarsAmplifyAdapterError
 @dataclass
 class OMMXInstanceBuilder:
     """
-    Build ommx.v1.Instance from the Model of Fixstars Amplify.
+    Build ommx.Instance from the Model of Fixstars Amplify.
     """
 
     model: amplify.Model
@@ -29,17 +31,34 @@ class OMMXInstanceBuilder:
         for var in self.model.variables:
             # TODO: How to deal with the case where the variable is an ising variable.
             if var.type == amplify.VariableType.Binary:
-                kind = DecisionVariable.BINARY
-                lower = 0
-                upper = 1
+                decision_variables.append(
+                    DecisionVariable.binary(
+                        id=var.id,
+                        name=var.name,
+                    )
+                )
             elif var.type == amplify.VariableType.Integer:
-                kind = DecisionVariable.INTEGER
                 lower = float("-inf") if var.lower_bound is None else var.lower_bound
                 upper = float("inf") if var.upper_bound is None else var.upper_bound
+                decision_variables.append(
+                    DecisionVariable.integer(
+                        id=var.id,
+                        lower=lower,
+                        upper=upper,
+                        name=var.name,
+                    )
+                )
             elif var.type == amplify.VariableType.Real:
-                kind = DecisionVariable.CONTINUOUS
                 lower = float("-inf") if var.lower_bound is None else var.lower_bound
                 upper = float("inf") if var.upper_bound is None else var.upper_bound
+                decision_variables.append(
+                    DecisionVariable.continuous(
+                        id=var.id,
+                        lower=lower,
+                        upper=upper,
+                        name=var.name,
+                    )
+                )
             elif var.type == amplify.VariableType.Ising:
                 raise OMMXFixstarsAmplifyAdapterError(
                     "Ising variable is not supported now. Please use the Binary variable."
@@ -49,21 +68,11 @@ class OMMXInstanceBuilder:
                     f"Unintended variable type: {var.type}"
                 )
 
-            decision_variables.append(
-                DecisionVariable.of_type(
-                    kind=kind,
-                    id=var.id,
-                    lower=lower,
-                    upper=upper,
-                    name=var.name,
-                )
-            )
-
         return decision_variables
 
     def _poly_to_ommx(self, poly: amplify.Poly, constant: float = 0.0) -> Function:
         """
-        Convert from the polynomial of the Fixstars Amplify SDK to the object of ommx.v1.
+        Convert from the polynomial of the Fixstars Amplify SDK to the object of ommx.
         """
         poly_dict = poly.as_dict()
         if poly.degree() <= 0:
@@ -108,17 +117,18 @@ class OMMXInstanceBuilder:
             objective = self.model.objective
         return self._poly_to_ommx(objective)
 
-    def constraints(self) -> typing.List[Constraint]:
+    def _convert_constraints(
+        self,
+    ) -> typing.Tuple[typing.Dict[int, Constraint], typing.Dict[int, OneHotConstraint]]:
         constraints = []
-        counter = -1
+        one_hot_constraints = []
+
         for constraint in self.model.constraints:
-            counter += 1
-            # Case: `amplify.less_than`
+            # Case: `amplify.less_equal`
             if constraint.conditional[1] == "LE":
                 assert isinstance(constraint.conditional[2], float)
                 constraints.append(
                     Constraint(
-                        id=counter,
                         function=self._poly_to_ommx(
                             constraint.conditional[0],
                             constraint.conditional[2],
@@ -130,24 +140,37 @@ class OMMXInstanceBuilder:
             # Case: `amplify.equal_to`
             elif constraint.conditional[1] == "EQ":
                 assert isinstance(constraint.conditional[2], float)
-                constraints.append(
-                    Constraint(
-                        id=counter,
-                        function=self._poly_to_ommx(
-                            constraint.conditional[0],
-                            constraint.conditional[2],
-                        ),
-                        equality=Constraint.EQUAL_TO_ZERO,
-                        name=constraint.label,
-                    )
+                poly = constraint.conditional[0]
+                variables = self._detect_one_hot(
+                    poly=poly,
+                    rhs=constraint.conditional[2],
                 )
-            # Case: `amplify.greater_than`
+                # Promote the standard `sum(binary variables) == 1` form to OMMX
+                # OneHotConstraint.
+                if variables is not None:
+                    one_hot_constraints.append(
+                        OneHotConstraint(
+                            variables=variables,
+                            name=constraint.label,
+                        )
+                    )
+                else:
+                    constraints.append(
+                        Constraint(
+                            function=self._poly_to_ommx(
+                                poly,
+                                constraint.conditional[2],
+                            ),
+                            equality=Constraint.EQUAL_TO_ZERO,
+                            name=constraint.label,
+                        )
+                    )
+            # Case: `amplify.greater_equal`
             elif constraint.conditional[1] == "GE":
                 assert isinstance(constraint.conditional[2], float)
                 # Convert to `LESS_THAN_OR_EQUAL_TO_ZERO` constraint.
                 constraints.append(
                     Constraint(
-                        id=counter,
                         function=self._poly_to_ommx(
                             -1 * constraint.conditional[0],
                             -1 * constraint.conditional[2],
@@ -162,7 +185,6 @@ class OMMXInstanceBuilder:
                 # Split into two `LESS_THAN_OR_EQUAL_TO_ZERO` constraints.
                 constraints.append(
                     Constraint(
-                        id=counter,
                         function=self._poly_to_ommx(
                             -1 * constraint.conditional[0],
                             -1 * constraint.conditional[2][0],
@@ -171,10 +193,8 @@ class OMMXInstanceBuilder:
                         name=constraint.label + "_lower",
                     )
                 )
-                counter += 1
                 constraints.append(
                     Constraint(
-                        id=counter,
                         function=self._poly_to_ommx(
                             constraint.conditional[0],
                             constraint.conditional[2][1],
@@ -188,7 +208,44 @@ class OMMXInstanceBuilder:
                     f"Unintended constraint type: {constraint.conditional[1]}"
                 )
 
-        return constraints
+        return dict(enumerate(constraints)), dict(enumerate(one_hot_constraints))
+
+    def _detect_one_hot(
+        self,
+        *,
+        poly: amplify.Poly,
+        rhs: float,
+    ) -> typing.List[int] | None:
+        poly_dict = poly.as_dict()
+        # `poly_dict.get((), 0.0)` is the constant term of the left-hand side.
+        # Moving `lhs == rhs` to OMMX's ordinary `function == 0` form gives
+        # `lhs - rhs == 0`, so one_hot must have constant term -1 there.
+        # Example: `x0 + x1 + x2 == 1` gives `0 - 1 == -1` and is one_hot.
+        # Counterexample: `x0 + x1 + x2 == 0` gives `0 - 0 == 0`.
+        if not math.isclose(poly_dict.get((), 0.0) - rhs, -1.0):
+            return None
+
+        variable_types = {var.id: var.type for var in poly.variables}
+        variables = []
+        # Check that the left-hand side is only a sum of linear binary variables with coefficient 1.
+        for key, coefficient in poly_dict.items():
+            if len(key) == 0:
+                continue
+            if len(key) != 1:
+                return None
+            if not math.isclose(coefficient, 1.0):
+                return None
+
+            variable_id = key[0]
+            if variable_types.get(variable_id) != amplify.VariableType.Binary:
+                return None
+
+            variables.append(variable_id)
+
+        if len(variables) == 0:
+            return None
+
+        return sorted(variables)
 
     def sense(self):
         # NOTE:
@@ -216,25 +273,27 @@ class OMMXInstanceBuilder:
             return Instance.from_components(
                 decision_variables=[],
                 objective=0,
-                constraints=[],
+                constraints={},
                 sense=self.sense(),
             )
         else:
+            constraints, one_hot_constraints = self._convert_constraints()
             return Instance.from_components(
                 decision_variables=self.decision_variables(),
                 objective=self.objective(),
-                constraints=self.constraints(),
+                constraints=constraints,
+                one_hot_constraints=one_hot_constraints,
                 sense=self.sense(),
             )
 
 
 def model_to_instance(model: amplify.Model) -> Instance:
     """
-    The function to create an ommx.v1.Instance from the Fixstars Amplify model.
+    The function to create an ommx.Instance from the Fixstars Amplify model.
 
     Example:
     =========
-    The following example shows how to create an ommx.v1.Instance from a Fixstars Amplify model.
+    The following example shows how to create an ommx.Instance from a Fixstars Amplify model.
 
     .. doctest::
 
