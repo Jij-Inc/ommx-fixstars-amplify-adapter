@@ -321,7 +321,18 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
                 one_hot_poly, label=f"{one_hot.name} [id: {one_hot_id}]"
             )
 
+        supported_equalities = {
+            Constraint.EQUAL_TO_ZERO,
+            Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
+        }
         for constr_id, constr in self.instance.constraints.items():
+            if constr.equality not in supported_equalities:
+                raise AssertionError(
+                    "Unsupported constraint equality reached after applicability "
+                    f"validation: {constr.equality} for constraint {constr_id}. This "
+                    "may indicate an OMMX implementation bug; please report it to OMMX."
+                )
+
             if constr.function.degree() == 0:
                 if constr.evaluate({}, atol=ABSOLUTE_TOLERANCE).feasible:
                     continue
@@ -337,12 +348,6 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             elif constr.equality == Constraint.LESS_THAN_OR_EQUAL_TO_ZERO:
                 self.model += amplify.less_equal(
                     function_poly, 0, label=f"{constr.name} [id: {constr_id}]"
-                )
-            else:
-                raise AssertionError(
-                    "Unsupported constraint equality reached after applicability "
-                    f"validation: {constr.equality} for constraint {constr_id}. This "
-                    "may indicate an OMMX implementation bug; please report it to OMMX."
                 )
 
     def _function_to_poly(
