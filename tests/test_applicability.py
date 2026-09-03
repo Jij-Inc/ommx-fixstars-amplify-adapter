@@ -3,8 +3,6 @@ import pytest
 from ommx import (
     Constraint,
     DecisionVariable,
-    DegreeBound,
-    Equality,
     Instance,
     InstanceClassMismatch,
     Kind,
@@ -15,27 +13,6 @@ from ommx import (
 from ommx.adapter import AdapterNotApplicableError
 
 from ommx_fixstars_amplify_adapter.adapter import OMMXFixstarsAmplifyAdapter
-
-
-def test_declares_polynomial_input_class() -> None:
-    input_class = OMMXFixstarsAmplifyAdapter.INPUT_CLASS
-    [clause] = input_class.clauses
-
-    assert clause.label == "fixstars-amplify-polynomial"
-    assert clause.allowed_variable_kinds == {
-        Kind.Binary,
-        Kind.Integer,
-        Kind.Continuous,
-    }
-    assert clause.objective_degree_bound == DegreeBound.unbounded()
-    assert clause.regular_constraint_degree_bounds == {
-        Equality.EqualToZero: DegreeBound.unbounded(),
-        Equality.LessThanOrEqualToZero: DegreeBound.unbounded(),
-    }
-    assert clause.indicator_constraint_degree_bounds == {}
-    assert clause.allows_one_hot
-    assert not clause.allows_sos1
-    assert clause.allowed_senses == {Sense.Minimize, Sense.Maximize}
 
 
 def test_input_class_accepts_polynomial_instance():

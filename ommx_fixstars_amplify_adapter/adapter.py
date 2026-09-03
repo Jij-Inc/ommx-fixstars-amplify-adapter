@@ -10,11 +10,11 @@ from ommx import (
     Constraint,
     Function,
     State,
-    DegreeBound,
     Equality,
     InstanceClass,
     InstanceClassClause,
     Kind,
+    PolynomialRequirement,
     PreparationPolicy,
     Sense,
     SpecialConstraintKind,
@@ -38,10 +38,10 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
                     Kind.Integer,
                     Kind.Continuous,
                 },
-                objective_degree_bound=DegreeBound.unbounded(),
-                regular_constraint_degree_bounds={
-                    Equality.EqualToZero: DegreeBound.unbounded(),
-                    Equality.LessThanOrEqualToZero: DegreeBound.unbounded(),
+                objective_polynomial_requirement=PolynomialRequirement.any_degree(),
+                regular_constraint_polynomial_requirements={
+                    Equality.EqualToZero: PolynomialRequirement.any_degree(),
+                    Equality.LessThanOrEqualToZero: PolynomialRequirement.any_degree(),
                 },
                 allows_one_hot=True,
                 allowed_senses={Sense.Minimize, Sense.Maximize},
@@ -111,15 +111,11 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         .. doctest::
 
             >>> from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
-            >>> from ommx import Instance, DecisionVariable
+            >>> from ommx import Instance
             >>>
-            >>> x1 = DecisionVariable.integer(1, lower=0, upper=5)
-            >>> ommx_instance = Instance.from_components(
-            ...     decision_variables=[x1],
-            ...     objective=x1,
-            ...     constraints={},
-            ...     sense=Instance.MINIMIZE,
-            ... )
+            >>> ommx_instance = Instance.minimize()
+            >>> x1 = ommx_instance.new_integer("x1", lower=0, upper=5)
+            >>> ommx_instance.objective = x1
             >>> token = "YOUR API TOKEN" # Set your API token
             >>> solution = OMMXFixstarsAmplifyAdapter.solve(ommx_instance, amplify_token=token) # doctest: +SKIP
         """
@@ -201,15 +197,11 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         .. doctest::
 
             >>> from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
-            >>> from ommx import Instance, DecisionVariable
+            >>> from ommx import Instance
             >>>
-            >>> x1 = DecisionVariable.integer(1, lower=0, upper=5)
-            >>> ommx_instance = Instance.from_components(
-            ...     decision_variables=[x1],
-            ...     objective=x1,
-            ...     constraints={},
-            ...     sense=Instance.MINIMIZE,
-            ... )
+            >>> ommx_instance = Instance.minimize()
+            >>> x1 = ommx_instance.new_integer("x1", lower=0, upper=5)
+            >>> ommx_instance.objective = x1
             >>>
             >>> adapter = OMMXFixstarsAmplifyAdapter(ommx_instance)
             >>> model = adapter.solver_input
@@ -238,15 +230,11 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         .. doctest::
 
             >>> from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
-            >>> from ommx import Instance, DecisionVariable
+            >>> from ommx import Instance
             >>>
-            >>> x1 = DecisionVariable.integer(1, lower=0, upper=5)
-            >>> ommx_instance = Instance.from_components(
-            ...     decision_variables=[x1],
-            ...     objective=x1,
-            ...     constraints={},
-            ...     sense=Instance.MINIMIZE,
-            ... )
+            >>> ommx_instance = Instance.minimize()
+            >>> x1 = ommx_instance.new_integer("x1", lower=0, upper=5)
+            >>> ommx_instance.objective = x1
             >>>
             >>> adapter = OMMXFixstarsAmplifyAdapter(ommx_instance)
             >>> model = adapter.solver_input
@@ -298,7 +286,15 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
                 )
 
     def _set_objective(self):
-        obj_poly = self._function_to_poly(self.instance.objective)
+        objective = self.instance.objective
+        if objective.degree() is None:
+            raise AssertionError(
+                "Non-polynomial objective reached after applicability validation. "
+                "This may indicate an OMMX implementation bug; please report it to "
+                "OMMX."
+            )
+
+        obj_poly = self._function_to_poly(objective)
         if self.instance.sense == Instance.MINIMIZE:
             self.model += obj_poly
         elif self.instance.sense == Instance.MAXIMIZE:
@@ -333,7 +329,15 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
                     "may indicate an OMMX implementation bug; please report it to OMMX."
                 )
 
-            if constr.function.degree() == 0:
+            constraint_degree = constr.function.degree()
+            if constraint_degree is None:
+                raise AssertionError(
+                    "Non-polynomial constraint reached after applicability validation: "
+                    f"constraint {constr_id}. This may indicate an OMMX implementation "
+                    "bug; please report it to OMMX."
+                )
+
+            if constraint_degree == 0:
                 if constr.evaluate({}, atol=ABSOLUTE_TOLERANCE).feasible:
                     continue
                 raise OMMXFixstarsAmplifyAdapterError(
