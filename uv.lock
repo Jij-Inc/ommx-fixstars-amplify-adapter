@@ -691,7 +691,7 @@ wheels = [
 
 [[package]]
 name = "ommx"
-version = "3.0.0b4"
+version = "3.0.0b5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ipython", version = "8.39.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -708,13 +708,13 @@ dependencies = [
     { name = "typing-extensions" },
 ]
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e6/93/a4990c102f101a8ae4d0724cc0c14a8154498c16662202a7362fbf885cdb/ommx-3.0.0b4-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:60b69a26c24f3bc76578e74ebb3b03747604ba4d5f62263d049be9b1eb349fdf", size = 8222482 },
-    { url = "https://files.pythonhosted.org/packages/91/d0/09c23bb1905d538332e933c98a31dadf008c6c2e51b63dbb006775dd6d88/ommx-3.0.0b4-cp310-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:6938aa9c3be422943d5b350aacb3dd184eb73cbed294f2cece64078aded02033", size = 8329980 },
-    { url = "https://files.pythonhosted.org/packages/0a/e2/b5531fc1ae3660013af3d0ba8245c63e394bd327bb9412a3c419fbc30d57/ommx-3.0.0b4-cp310-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:3575d0187378084c59fde3f125d4cd8f9c7881ca285a39c63d2cb0486b15acd2", size = 9278418 },
-    { url = "https://files.pythonhosted.org/packages/f6/13/272273e6cd1f74d31a42732d6603281a21c769621ff2f198edc1e8f435c8/ommx-3.0.0b4-cp310-abi3-win_amd64.whl", hash = "sha256:f617e00a36b4acbd514e34820eb480176275f825b7aaad8118f1d6acbb3c48fb", size = 8695665 },
-    { url = "https://files.pythonhosted.org/packages/d2/98/dae0da4782b9fb1446713160250666c2c564bbc058c2afe393ca336f73fd/ommx-3.0.0b4-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:fa1c3142a6ab7971e0f54a0f931f270333d6f8a903069e8edddb1aaf4489c97e", size = 8244209 },
-    { url = "https://files.pythonhosted.org/packages/2b/30/9a96de3993d243dc0b35cbf0307391db9bd02feec2bcc58a7a8a489d988e/ommx-3.0.0b4-cp314-cp314t-manylinux_2_28_aarch64.whl", hash = "sha256:29fbb17f18dfe830f85c097c59bbd9061c9ca46b73a00d69772a485cf56245e2", size = 8327390 },
-    { url = "https://files.pythonhosted.org/packages/1b/ac/2d34671cbc447e69e4f3f4ab7cbcbf95f221a2b679ea149cb012e9edfd4f/ommx-3.0.0b4-cp314-cp314t-manylinux_2_28_x86_64.whl", hash = "sha256:803b17cd84ac563966b55c9080252a1a97ab96ea48c20496c1c63b9de6328c09", size = 9280369 },
+    { url = "https://files.pythonhosted.org/packages/88/de/655a9c12a36d1c1c9ca939c870e762351baff1a9ec2c5efe5faa014b0c52/ommx-3.0.0b5-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:9482db7e72972f59a8d335b4a961a511c486a3410328bc591d924c62793b20f4", size = 8345205 },
+    { url = "https://files.pythonhosted.org/packages/54/6b/5a2476470fe17fddae275fa200dd81435340e71f32b04bf2908e5515854b/ommx-3.0.0b5-cp310-abi3-manylinux_2_28_aarch64.whl", hash = "sha256:33691fd1205ff02a08d5243c27eddb42e776905e5d9a59c4a6cde6da117ba176", size = 8457255 },
+    { url = "https://files.pythonhosted.org/packages/7e/5f/ebe6d59f1f5dd5b472d2e24e42e80e970b29dcfe4cd9283c017933a5c109/ommx-3.0.0b5-cp310-abi3-manylinux_2_28_x86_64.whl", hash = "sha256:06296159f2f1c59e72c502012f2359498858629739a365c81f43c5286aded722", size = 9401683 },
+    { url = "https://files.pythonhosted.org/packages/56/c7/7a44df84b7dd189f3852669da352cb7fcae3532c44f0dbbc8c21468afb5a/ommx-3.0.0b5-cp310-abi3-win_amd64.whl", hash = "sha256:e3f4654f50e714020f132bddc3dcce6c93c91d9f5dd47207bab45c8a64c8f403", size = 8917971 },
+    { url = "https://files.pythonhosted.org/packages/be/17/1c122cd7ae86d241c360d706fdc6b70e9f8946b6f99fbe57946b324d8111/ommx-3.0.0b5-cp314-cp314t-macosx_11_0_arm64.whl", hash = "sha256:38e879f60f96565079b283ba6c5ae7b658535a2d5a5f6c3d046e683bb967125a", size = 8354426 },
+    { url = "https://files.pythonhosted.org/packages/38/41/16f0060f221d98679bd816740c7edeb70288297d144bed108a1a06779f0b/ommx-3.0.0b5-cp314-cp314t-manylinux_2_28_aarch64.whl", hash = "sha256:d28f987d1ae994f2221269c252c74258989530e47ed8f13716c96cb94adec3ef", size = 8474899 },
+    { url = "https://files.pythonhosted.org/packages/ad/3a/b597bcd2404b169c1e6236b722ccd753b0272fdb28eea6c8435d779cde44/ommx-3.0.0b5-cp314-cp314t-manylinux_2_28_x86_64.whl", hash = "sha256:821d9929290c32939d67e8fb9acec0d74091a9ddbaa2bdead64828344f7f2429", size = 9412309 },
 ]
 
 [[package]]
@@ -740,7 +740,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "amplify", specifier = ">=1.2.0,<2.0.0" },
-    { name = "ommx", specifier = ">=3.0.0b4,<4.0.0" },
+    { name = "ommx", specifier = ">=3.0.0b5,<4.0.0" },
     { name = "pyright", marker = "extra == 'dev'" },
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "ruff", marker = "extra == 'dev'" },
