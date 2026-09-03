@@ -286,7 +286,15 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
                 )
 
     def _set_objective(self):
-        obj_poly = self._function_to_poly(self.instance.objective)
+        objective = self.instance.objective
+        if objective.degree() is None:
+            raise AssertionError(
+                "Non-polynomial objective reached after applicability validation. "
+                "This may indicate an OMMX implementation bug; please report it to "
+                "OMMX."
+            )
+
+        obj_poly = self._function_to_poly(objective)
         if self.instance.sense == Instance.MINIMIZE:
             self.model += obj_poly
         elif self.instance.sense == Instance.MAXIMIZE:
@@ -321,7 +329,15 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
                     "may indicate an OMMX implementation bug; please report it to OMMX."
                 )
 
-            if constr.function.degree() == 0:
+            constraint_degree = constr.function.degree()
+            if constraint_degree is None:
+                raise AssertionError(
+                    "Non-polynomial constraint reached after applicability validation: "
+                    f"constraint {constr_id}. This may indicate an OMMX implementation "
+                    "bug; please report it to OMMX."
+                )
+
+            if constraint_degree == 0:
                 if constr.evaluate({}, atol=ABSOLUTE_TOLERANCE).feasible:
                     continue
                 raise OMMXFixstarsAmplifyAdapterError(
