@@ -111,15 +111,11 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         .. doctest::
 
             >>> from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
-            >>> from ommx import Instance, DecisionVariable
+            >>> from ommx import Instance
             >>>
-            >>> x1 = DecisionVariable.integer(1, lower=0, upper=5)
-            >>> ommx_instance = Instance.from_components(
-            ...     decision_variables=[x1],
-            ...     objective=x1,
-            ...     constraints={},
-            ...     sense=Instance.MINIMIZE,
-            ... )
+            >>> ommx_instance = Instance.minimize()
+            >>> x1 = ommx_instance.new_integer("x1", lower=0, upper=5)
+            >>> ommx_instance.objective = x1
             >>> token = "YOUR API TOKEN" # Set your API token
             >>> solution = OMMXFixstarsAmplifyAdapter.solve(ommx_instance, amplify_token=token) # doctest: +SKIP
         """
@@ -201,15 +197,11 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         .. doctest::
 
             >>> from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
-            >>> from ommx import Instance, DecisionVariable
+            >>> from ommx import Instance
             >>>
-            >>> x1 = DecisionVariable.integer(1, lower=0, upper=5)
-            >>> ommx_instance = Instance.from_components(
-            ...     decision_variables=[x1],
-            ...     objective=x1,
-            ...     constraints={},
-            ...     sense=Instance.MINIMIZE,
-            ... )
+            >>> ommx_instance = Instance.minimize()
+            >>> x1 = ommx_instance.new_integer("x1", lower=0, upper=5)
+            >>> ommx_instance.objective = x1
             >>>
             >>> adapter = OMMXFixstarsAmplifyAdapter(ommx_instance)
             >>> model = adapter.solver_input
@@ -238,15 +230,11 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         .. doctest::
 
             >>> from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
-            >>> from ommx import Instance, DecisionVariable
+            >>> from ommx import Instance
             >>>
-            >>> x1 = DecisionVariable.integer(1, lower=0, upper=5)
-            >>> ommx_instance = Instance.from_components(
-            ...     decision_variables=[x1],
-            ...     objective=x1,
-            ...     constraints={},
-            ...     sense=Instance.MINIMIZE,
-            ... )
+            >>> ommx_instance = Instance.minimize()
+            >>> x1 = ommx_instance.new_integer("x1", lower=0, upper=5)
+            >>> ommx_instance.objective = x1
             >>>
             >>> adapter = OMMXFixstarsAmplifyAdapter(ommx_instance)
             >>> model = adapter.solver_input
