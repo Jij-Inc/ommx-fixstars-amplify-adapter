@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=64", "setuptools_scm>=8", "wheel"]
+requires = ["setuptools>=69", "setuptools_scm>=8", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -11,10 +11,9 @@ authors = [
 ]
 
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -23,8 +22,8 @@ classifiers = [
 ]
 
 dependencies = [
-    "ommx >= 3.0.0b5, < 4.0.0",
-    "amplify >= 1.2.0, < 2.0.0", 
+    "ommx >= 3.0.0rc1, < 4",
+    "amplify >= 1.7.2, < 2.0.0",
 ]
 
 [project.optional-dependencies]
