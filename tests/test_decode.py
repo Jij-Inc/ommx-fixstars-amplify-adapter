@@ -1,3 +1,4 @@
+import copy
 from unittest.mock import Mock, patch
 
 import amplify
@@ -6,11 +7,13 @@ from ommx import Instance, State
 from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
 
 
-def test_decode_evaluates_the_instance_used_to_build_the_model():
+def test_decode_uses_the_copy_supplied_by_the_caller():
     instance = Instance.maximize()
     x = instance.new_binary("x")
     instance.objective = x
-    adapter = OMMXFixstarsAmplifyAdapter(instance)
+    supplied = copy.copy(instance)
+    adapter = OMMXFixstarsAmplifyAdapter(supplied)
+    assert adapter.instance is supplied
 
     state = State(entries={x.id: 1})
     instance.objective = 1 - x

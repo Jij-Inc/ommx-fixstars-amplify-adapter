@@ -67,11 +67,15 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         )
 
     def __init__(self, ommx_instance: Instance):
-        """
+        """Build the Amplify model and retain the supplied OMMX instance by reference.
+
+        Keep the instance unchanged from construction until you finish using the
+        adapter, including backend configuration, execution, and decoding. To edit
+        the original during that time, pass ``copy.copy(instance)`` to the constructor.
+
         :param ommx_instance: The ommx.Instance to solve.
         """
-        self._instance_snapshot = copy.copy(ommx_instance)
-        self.require_applicable(self._instance_snapshot)
+        self.require_applicable(ommx_instance)
         self.instance = ommx_instance
         self.model = amplify.Model()
 
@@ -90,6 +94,8 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
     ) -> Solution:
         """Solve the given ommx.Instance using Fixstars Amplify AE, returning an
         ommx.Solution.
+
+        Preparation runs on a private copy of the supplied instance.
 
         ``diagnostics`` are not available through this Adapter.
         The reserved ``diagnostics`` argument is accepted for compatibility with
@@ -142,6 +148,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
 
         Use this method when the input instance has already been prepared,
         possibly with a custom policy, or already belongs to ``INPUT_CLASS``.
+        Keep the supplied instance unchanged until this call returns.
 
         ``diagnostics`` are not available through this Adapter.
         The reserved ``diagnostics`` argument is accepted for compatibility with
@@ -186,13 +193,10 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         `solver_input` for further adjustment of the solver parameters, and
         separately optimizing the model.
 
-        Decoding evaluates the state against the snapshot used to build the
-        Amplify model, even if the caller later edits the original OMMX instance.
-
-        Note that alterations to the model may make the decoding process
-        incompatible -- decoding will only work if the model still describes
-        effectively the same problem as the OMMX instance used to create the
-        adapter.
+        Decoding evaluates the state against the OMMX instance passed to the
+        constructor. Keep that instance unchanged while using the adapter.
+        Any changes to the Amplify model must preserve its correspondence with
+        the OMMX problem for decoding to remain valid.
 
         Example:
         =========
@@ -219,7 +223,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
 
         # TODO infeasible/unbounded detection
         state = self.decode_to_state(data)
-        solution = self._instance_snapshot.evaluate(state)
+        solution = self.instance.evaluate(state)
 
         return solution
 
@@ -264,7 +268,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
     def _set_decision_variables(self):
         self.variable_map: dict[int, amplify.Poly] = {}
         gen = amplify.VariableGenerator()
-        for var in self._instance_snapshot.active_decision_variables:
+        for var in self.instance.active_decision_variables:
             if var.kind == DecisionVariable.BINARY:
                 binary = gen.scalar(
                     amplify.VariableType.Binary,
@@ -297,7 +301,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
                 )
 
     def _set_objective(self):
-        objective = self._instance_snapshot.objective
+        objective = self.instance.objective
         if objective.degree() is None:
             raise AssertionError(
                 "Non-polynomial objective reached after applicability validation. "
@@ -306,19 +310,19 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             )
 
         obj_poly = self._function_to_poly(objective)
-        if self._instance_snapshot.sense == Instance.MINIMIZE:
+        if self.instance.sense == Instance.MINIMIZE:
             self.model += obj_poly
-        elif self._instance_snapshot.sense == Instance.MAXIMIZE:
+        elif self.instance.sense == Instance.MAXIMIZE:
             self.model += -obj_poly
         else:
             raise AssertionError(
                 "Unsupported objective sense reached after applicability validation: "
-                f"{self._instance_snapshot.sense}. This may indicate an OMMX implementation "
+                f"{self.instance.sense}. This may indicate an OMMX implementation "
                 "bug; please report it to OMMX."
             )
 
     def _set_constraints(self):
-        unsupported = self._instance_snapshot.active_constraint_kinds - {
+        unsupported = self.instance.active_constraint_kinds - {
             ConstraintKind.Regular,
             ConstraintKind.OneHot,
         }
@@ -326,7 +330,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             raise AssertionError(
                 f"Unsupported active constraint families after applicability validation: {unsupported}"
             )
-        active = self._instance_snapshot.active_constraints
+        active = self.instance.active_constraints
         for one_hot_id, one_hot in active.of_kind(ConstraintKind.OneHot).items():
             # convert one_hot constraint to polynomial
             one_hot_poly = amplify.sum(
