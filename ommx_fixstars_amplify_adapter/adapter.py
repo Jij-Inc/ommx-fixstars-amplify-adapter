@@ -70,8 +70,8 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         """
         :param ommx_instance: The ommx.Instance to solve.
         """
-        self._encoded_instance = copy.copy(ommx_instance)
-        self.require_applicable(self._encoded_instance)
+        self._instance_snapshot = copy.copy(ommx_instance)
+        self.require_applicable(self._instance_snapshot)
         self.instance = ommx_instance
         self.model = amplify.Model()
 
@@ -219,7 +219,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
 
         # TODO infeasible/unbounded detection
         state = self.decode_to_state(data)
-        solution = self._encoded_instance.evaluate(state)
+        solution = self._instance_snapshot.evaluate(state)
 
         return solution
 
@@ -264,7 +264,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
     def _set_decision_variables(self):
         self.variable_map: dict[int, amplify.Poly] = {}
         gen = amplify.VariableGenerator()
-        for var in self._encoded_instance.active_decision_variables:
+        for var in self._instance_snapshot.active_decision_variables:
             if var.kind == DecisionVariable.BINARY:
                 binary = gen.scalar(
                     amplify.VariableType.Binary,
@@ -297,7 +297,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
                 )
 
     def _set_objective(self):
-        objective = self._encoded_instance.objective
+        objective = self._instance_snapshot.objective
         if objective.degree() is None:
             raise AssertionError(
                 "Non-polynomial objective reached after applicability validation. "
@@ -306,19 +306,19 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             )
 
         obj_poly = self._function_to_poly(objective)
-        if self._encoded_instance.sense == Instance.MINIMIZE:
+        if self._instance_snapshot.sense == Instance.MINIMIZE:
             self.model += obj_poly
-        elif self._encoded_instance.sense == Instance.MAXIMIZE:
+        elif self._instance_snapshot.sense == Instance.MAXIMIZE:
             self.model += -obj_poly
         else:
             raise AssertionError(
                 "Unsupported objective sense reached after applicability validation: "
-                f"{self._encoded_instance.sense}. This may indicate an OMMX implementation "
+                f"{self._instance_snapshot.sense}. This may indicate an OMMX implementation "
                 "bug; please report it to OMMX."
             )
 
     def _set_constraints(self):
-        unsupported = self._encoded_instance.active_constraint_kinds - {
+        unsupported = self._instance_snapshot.active_constraint_kinds - {
             ConstraintKind.Regular,
             ConstraintKind.OneHot,
         }
@@ -326,7 +326,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             raise AssertionError(
                 f"Unsupported active constraint families after applicability validation: {unsupported}"
             )
-        active = self._encoded_instance.active_constraints
+        active = self._instance_snapshot.active_constraints
         for one_hot_id, one_hot in active.of_kind(ConstraintKind.OneHot).items():
             # convert one_hot constraint to polynomial
             one_hot_poly = amplify.sum(
