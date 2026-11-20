@@ -257,7 +257,8 @@ class OMMXInstanceBuilder:
         return Instance.MINIMIZE
 
     def _is_empty_model(self) -> bool:
-        # Avoid querying Model.variables on a variable-free model.
+        # NOTE: Accessing amplify.Model.variables on a model with no decision
+        # variables can cause a segmentation fault in the Amplify SDK.
         if len(self.model.constraints) > 0:
             return False
         objective = self.model.objective
