@@ -26,6 +26,10 @@ class OMMXInstanceBuilder:
     model: amplify.Model
 
     def decision_variables(self) -> typing.List[DecisionVariable]:
+        # NOTE: Accessing Model.variables on a variable-free model has caused
+        # segmentation faults in Amplify.
+        if not self.model.constraints and self.model.objective.degree() <= 0:
+            return []
         decision_variables = []
 
         for var in self.model.variables:
@@ -113,11 +117,7 @@ class OMMXInstanceBuilder:
             return Function(Polynomial(terms=coefficients))
 
     def objective(self) -> Function:
-        if isinstance(self.model.objective, amplify.Matrix):
-            objective = self.model.objective.to_poly()
-        else:
-            objective = self.model.objective
-        return self._poly_to_ommx(objective)
+        return self._poly_to_ommx(self.model.objective)
 
     def _convert_constraints(
         self,
@@ -258,34 +258,15 @@ class OMMXInstanceBuilder:
         # https://amplify.fixstars.com/ja/docs/amplify/v1/objective.html
         return Instance.MINIMIZE
 
-    def _is_empty_model(self) -> bool:
-        # NOTE: Accessing amplify.Model.variables on a model with no decision
-        # variables can cause a segmentation fault in the Amplify SDK.
-        if len(self.model.constraints) > 0:
-            return False
-        objective = self.model.objective
-        if isinstance(objective, amplify.Matrix):
-            # A matrix declares variables even when all their coefficients are zero.
-            return objective.variable_array.size == 0
-        return objective.degree() <= 0
-
     def build(self) -> Instance:
-        if self._is_empty_model():
-            return Instance.from_components(
-                decision_variables=[],
-                objective=self.objective(),
-                active_constraints={},
-                sense=self.sense(),
-            )
-        else:
-            constraints, one_hot_constraints = self._convert_constraints()
-            return Instance.from_components(
-                decision_variables=self.decision_variables(),
-                objective=self.objective(),
-                active_constraints=constraints,
-                active_one_hot_constraints=one_hot_constraints,
-                sense=self.sense(),
-            )
+        constraints, one_hot_constraints = self._convert_constraints()
+        return Instance.from_components(
+            decision_variables=self.decision_variables(),
+            objective=self.objective(),
+            active_constraints=constraints,
+            active_one_hot_constraints=one_hot_constraints,
+            sense=self.sense(),
+        )
 
 
 def model_to_instance(model: amplify.Model) -> Instance:

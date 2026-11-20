@@ -48,3 +48,9 @@ jobs:
         if: always()
         run: |
           uv run pytest --doctest-modules -vv
+
+      - name: Test minimum runtime dependencies
+        if: matrix.python-version == '3.11'
+        run: |
+          uv pip compile pyproject.toml --resolution lowest-direct -o "$RUNNER_TEMP/minimum.txt"
+          uv run --isolated --no-project --with-requirements "$RUNNER_TEMP/minimum.txt" --with pytest python -m pytest --doctest-modules -v

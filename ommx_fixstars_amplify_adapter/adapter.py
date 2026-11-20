@@ -287,7 +287,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
                 self.variable_map[var.id] = binary
                 bound = var.bound
                 if bound.lower == bound.upper:
-                    # Amplify ignores bounds on Binary variables.
+                    # Amplify requires an equality to fix a Binary variable.
                     self.model += amplify.equal_to(
                         binary, bound.lower, label=f"Fixed binary [id: {var.id}]"
                     )

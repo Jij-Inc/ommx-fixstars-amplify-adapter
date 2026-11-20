@@ -1,6 +1,7 @@
 from itertools import product
 
 import amplify
+import numpy as np
 import pytest
 from ommx import Constraint, ConstraintKind, DecisionVariable
 
@@ -18,12 +19,20 @@ def test_constant_objective_without_variables(constant: float) -> None:
     assert instance.evaluate({}).objective == constant
 
 
+def test_constant_matrix_without_constraints():
+    matrix = amplify.VariableGenerator().matrix("Binary", 2)
+    matrix.constant = 7
+    instance = model_to_instance(amplify.Model(matrix))
+    assert not instance.decision_variables
+    assert instance.evaluate({}).objective == 7
+
+
 def test_constant_matrix_preserves_binary_assignments():
     matrix = amplify.VariableGenerator().matrix("Binary", 2)
     matrix.constant = 7
-    model = amplify.Model(matrix)
-    instance = model_to_instance(model)
-    ids = [var.id for var in model.variables]
+    x, y = matrix.variable_array.flat
+    instance = model_to_instance(amplify.Model(matrix, amplify.less_equal(x + y, 2)))
+    ids = [x.as_variable().id, y.as_variable().id]
 
     for bits in product((0, 1), repeat=2):
         state = dict(zip(ids, bits, strict=True))
@@ -35,17 +44,34 @@ def test_constant_matrix_preserves_binary_assignments():
 
 def test_constant_matrix_preserves_integer_domain():
     matrix = amplify.VariableGenerator().matrix("Integer", 1)
-    model = amplify.Model(matrix)
-    (variable,) = model.variables
+    (x,) = matrix.variable_array.flat
+    variable = x.as_variable()
     variable.name = "count"
     variable.lower_bound = 3
     variable.upper_bound = 5
-    instance = model_to_instance(model)
+    instance = model_to_instance(amplify.Model(matrix, amplify.greater_equal(x, 3)))
 
     count = instance.get_decision_variable_by_id(variable.id)
     assert count.name == "count"
     assert count.kind == DecisionVariable.INTEGER
     assert (count.bound.lower, count.bound.upper) == (3, 5)
+
+
+def test_matrix_preserves_nonzero_term_with_nonconsecutive_variable_ids():
+    gen = amplify.VariableGenerator()
+    first = gen.scalar("Binary")
+    matrix = gen.matrix("Binary", 2)
+    _, last = matrix.variable_array.flat
+    matrix.linear = np.array([0.0, 2.0])
+    model = amplify.Model(matrix, amplify.equal_to(first + last, 1))
+    instance = model_to_instance(model)
+    first_id, last_id = first.as_variable().id, last.as_variable().id
+
+    assert {v.id for v in instance.decision_variables} == {first_id, last_id}
+    for x, y in product((0, 1), repeat=2):
+        solution = instance.evaluate({first_id: x, last_id: y})
+        assert solution.objective == 2 * y
+        assert solution.feasible == (x + y == 1)
 
 
 def test_model_to_instance():
