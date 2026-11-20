@@ -7,6 +7,17 @@ from ommx import Instance, State
 from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
 
 
+def test_decode_constant_objective_without_reading_a_sample():
+    instance = Instance.minimize()
+    instance.objective = 7
+    adapter = OMMXFixstarsAmplifyAdapter(instance)
+
+    solution = adapter.decode(Mock(spec_set=[]))
+
+    assert solution.state.entries == {}
+    assert solution.objective == 7
+
+
 def test_decode_uses_the_copy_supplied_by_the_caller():
     instance = Instance.maximize()
     x = instance.new_binary("x")

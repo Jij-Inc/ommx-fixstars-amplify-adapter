@@ -253,11 +253,14 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             >>> result = amplify.solve(model, client)  # doctest: +SKIP
             >>> state = adapter.decode_to_state(result)  # doctest: +SKIP
         """
+        if not self.variable_map:
+            return State(entries={})
         try:
+            values = data.best.values
             return State(
                 entries={
-                    key: value.evaluate(data.best.values)
-                    for key, value in self.variable_map.items()
+                    var_id: poly.evaluate(values)
+                    for var_id, poly in self.variable_map.items()
                 }
             )
         except RuntimeError as e:

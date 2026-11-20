@@ -75,14 +75,14 @@ class OMMXInstanceBuilder:
         Convert from the polynomial of the Fixstars Amplify SDK to the object of ommx.
         """
         poly_dict = poly.as_dict()
-        if poly.degree() <= 0:
-            return Function(poly_dict.pop((), 0.0) - constant)
-        elif poly.degree() == 1:
-            constant = poly_dict.pop((), 0.0) - constant
+        constant = poly_dict.pop((), 0.0) - constant
+        degree = poly.degree()
+        if degree <= 0:
+            return Function(constant)
+        elif degree == 1:
             terms = {key[0]: value for key, value in poly_dict.items()}
             return Function(Linear(terms=terms, constant=constant))
-        elif poly.degree() == 2:
-            constant = poly_dict.pop((), 0.0) - constant
+        elif degree == 2:
             columns = []
             rows = []
             values = []
@@ -103,12 +103,12 @@ class OMMXInstanceBuilder:
                 )
             )
         else:
-            constant = poly_dict.pop((), 0.0) - constant
-            terms = {}
-            for key, value in poly_dict.items():
-                terms[key] = value
-            terms[()] = constant
-            return Function(Polynomial(terms=terms))
+            poly_dict[()] = constant
+            # OMMX accepts sequence keys and reads the tuple keys from Amplify.
+            coefficients = typing.cast(
+                typing.Mapping[typing.Sequence[int], float], poly_dict
+            )
+            return Function(Polynomial(terms=coefficients))
 
     def objective(self) -> Function:
         if isinstance(self.model.objective, amplify.Matrix):
