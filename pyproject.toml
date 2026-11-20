@@ -37,5 +37,8 @@ dev = [
     "sphinx_rtd_theme",
 ]
 
+[tool.setuptools.package-data]
+ommx_fixstars_amplify_adapter = ["py.typed"]
+
 [tool.setuptools_scm]
 version_file = "ommx_fixstars_amplify_adapter/_version.py"

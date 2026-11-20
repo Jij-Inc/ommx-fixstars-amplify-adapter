@@ -1,5 +1,5 @@
 import copy
-from typing import ClassVar
+from typing import ClassVar, final
 
 import amplify
 
@@ -29,6 +29,7 @@ from .exception import OMMXFixstarsAmplifyAdapterError
 ABSOLUTE_TOLERANCE = 1e-6
 
 
+@final
 class OMMXFixstarsAmplifyAdapter(SolverAdapter):
     INPUT_CLASS: ClassVar[InstanceClass] = InstanceClass(
         [
