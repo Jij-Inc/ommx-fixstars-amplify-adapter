@@ -23,7 +23,7 @@ classifiers = [
 
 dependencies = [
     "ommx >= 3.0.0rc1, < 4",
-    "amplify >= 1.2.0, < 2.0.0", 
+    "amplify >= 1.4.1, < 2.0.0",
 ]
 
 [project.optional-dependencies]

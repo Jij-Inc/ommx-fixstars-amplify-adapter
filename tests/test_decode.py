@@ -2,9 +2,24 @@ import copy
 from unittest.mock import Mock, patch
 
 import amplify
+import pytest
 from ommx import Instance, State
+from ommx.adapter import NoSolutionReturned
 
 from ommx_fixstars_amplify_adapter import OMMXFixstarsAmplifyAdapter
+
+
+def test_decode_empty_result_with_active_variables():
+    instance = Instance.minimize()
+    instance.objective = instance.new_binary("x")
+    adapter = OMMXFixstarsAmplifyAdapter(instance)
+    result = amplify.solve(
+        adapter.solver_input, amplify.AmplifyAEClient(), dry_run=True
+    )
+    assert len(result) == 0
+
+    with pytest.raises(NoSolutionReturned):
+        adapter.decode(result)
 
 
 def test_decode_constant_objective_without_reading_a_sample():

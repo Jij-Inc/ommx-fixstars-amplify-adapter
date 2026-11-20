@@ -5,6 +5,7 @@ from ommx import (
     Constraint,
     DecisionVariable,
     Equality,
+    InfeasibleDetected,
     Instance,
     Linear,
     OneHotConstraint,
@@ -14,7 +15,6 @@ from ommx import (
 )
 
 from ommx_fixstars_amplify_adapter.adapter import OMMXFixstarsAmplifyAdapter
-from ommx_fixstars_amplify_adapter.exception import OMMXFixstarsAmplifyAdapterError
 from conftest import assert_amplify_model
 
 
@@ -210,7 +210,7 @@ def test_rejects_infeasible_constant_constraint(
     )
 
     with pytest.raises(
-        OMMXFixstarsAmplifyAdapterError,
+        InfeasibleDetected,
         match=r"Infeasible constant constraint was found: id ConstraintID\(0\)",
     ):
         OMMXFixstarsAmplifyAdapter(instance)

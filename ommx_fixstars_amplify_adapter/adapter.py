@@ -10,6 +10,7 @@ from ommx import (
     Constraint,
     ConstraintKind,
     Function,
+    InfeasibleDetected,
     State,
     Equality,
     InstanceClass,
@@ -20,7 +21,7 @@ from ommx import (
     Sense,
     SpecialConstraintPreparation,
 )
-from ommx.adapter import DiagnosticsSink, SolverAdapter
+from ommx.adapter import DiagnosticsSink, NoSolutionReturned, SolverAdapter
 
 from .exception import OMMXFixstarsAmplifyAdapterError
 
@@ -165,6 +166,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         :param diagnostics: Reserved for OMMX SolverAdapter compatibility;
           currently unused.
         """
+        adapter = cls(ommx_instance)
         if amplify_token == "":
             raise OMMXFixstarsAmplifyAdapterError(
                 "No Fixstars Amplify token specified -- cannot instantiate client"
@@ -172,7 +174,6 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
 
         # TODO: Update the diagnostics docstrings when support is implemented.
         _ = diagnostics
-        adapter = cls(ommx_instance)
 
         client = amplify.AmplifyAEClient()
         client.token = amplify_token
@@ -197,6 +198,9 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         constructor. Keep that instance unchanged while using the adapter.
         Any changes to the Amplify model must preserve its correspondence with
         the OMMX problem for decoding to remain valid.
+
+        :raises ommx.adapter.NoSolutionReturned: If there are active variables
+            to decode and Amplify returned no candidates.
 
         Example:
         =========
@@ -255,6 +259,8 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         """
         if not self.variable_map:
             return State(entries={})
+        if len(data) == 0:
+            raise NoSolutionReturned("Amplify returned no candidates.")
         try:
             values = data.best.values
             return State(
@@ -367,7 +373,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
                 evaluated = constr.evaluate({}, atol=ABSOLUTE_TOLERANCE)
                 if evaluated.is_feasible(atol=ABSOLUTE_TOLERANCE):
                     continue
-                raise OMMXFixstarsAmplifyAdapterError(
+                raise InfeasibleDetected(
                     f"Infeasible constant constraint was found: id {constr_id}"
                 )
 

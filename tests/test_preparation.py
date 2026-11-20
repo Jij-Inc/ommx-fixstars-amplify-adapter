@@ -29,7 +29,8 @@ def test_recommended_preparation_policies_are_independent() -> None:
     assert second.special_constraints is not None
 
 
-def test_rejects_unsupported_special_constraints_without_mutating_input():
+@pytest.mark.parametrize("token", ["", "dummy"])
+def test_rejects_unsupported_special_constraints_without_mutating_input(token: str):
     indicator_variable = DecisionVariable.binary(0)
     continuous_variable = DecisionVariable.continuous(1, lower=-2, upper=2)
 
@@ -60,7 +61,7 @@ def test_rejects_unsupported_special_constraints_without_mutating_input():
     with pytest.raises(AdapterNotApplicableError) as error:
         OMMXFixstarsAmplifyAdapter.solve_without_preparation(
             instance,
-            amplify_token="dummy",
+            amplify_token=token,
         )
     mismatches = error.value.report.clause_reports[0].mismatches
     mismatch_types = {type(mismatch) for mismatch in mismatches}

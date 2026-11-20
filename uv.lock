@@ -578,7 +578,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "amplify", specifier = ">=1.2.0,<2.0.0" },
+    { name = "amplify", specifier = ">=1.4.1,<2.0.0" },
     { name = "ommx", specifier = ">=3.0.0rc1,<4" },
     { name = "pyright", marker = "extra == 'dev'" },
     { name = "pytest", marker = "extra == 'dev'" },
