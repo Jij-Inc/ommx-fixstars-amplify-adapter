@@ -257,15 +257,14 @@ class OMMXInstanceBuilder:
         return Instance.MINIMIZE
 
     def _is_empty_model(self) -> bool:
-        # NOTE:
-        # A segment fault occurs when accessing the variables method of
-        # the amplify.Model without decision variables.
-        # So, without accessing this method, determine an empty mathematical model.
-        if isinstance(self.model.objective, amplify.Poly):
-            objective = self.model.objective
-        else:
-            objective = self.model.objective.to_poly()
-        return objective.degree() <= 0 and len(self.model.constraints) == 0
+        # Avoid querying Model.variables on a variable-free model.
+        if len(self.model.constraints) > 0:
+            return False
+        objective = self.model.objective
+        if isinstance(objective, amplify.Matrix):
+            # A matrix declares variables even when all their coefficients are zero.
+            return objective.variable_array.size == 0
+        return objective.degree() <= 0
 
     def build(self) -> Instance:
         if self._is_empty_model():

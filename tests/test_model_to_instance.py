@@ -1,3 +1,5 @@
+from itertools import product
+
 import amplify
 import pytest
 from ommx import Constraint, ConstraintKind, DecisionVariable
@@ -14,6 +16,36 @@ def test_constant_objective_without_variables(constant: float) -> None:
     instance = model_to_instance(amplify.Model(amplify.Poly(constant)))
     assert not instance.decision_variables
     assert instance.evaluate({}).objective == constant
+
+
+def test_constant_matrix_preserves_binary_assignments():
+    matrix = amplify.VariableGenerator().matrix("Binary", 2)
+    matrix.constant = 7
+    model = amplify.Model(matrix)
+    instance = model_to_instance(model)
+    ids = [var.id for var in model.variables]
+
+    for bits in product((0, 1), repeat=2):
+        state = dict(zip(ids, bits, strict=True))
+        solution = instance.evaluate(state)
+        assert solution.state.entries == state
+        assert solution.feasible
+        assert solution.objective == 7
+
+
+def test_constant_matrix_preserves_integer_domain():
+    matrix = amplify.VariableGenerator().matrix("Integer", 1)
+    model = amplify.Model(matrix)
+    (variable,) = model.variables
+    variable.name = "count"
+    variable.lower_bound = 3
+    variable.upper_bound = 5
+    instance = model_to_instance(model)
+
+    count = instance.get_decision_variable_by_id(variable.id)
+    assert count.name == "count"
+    assert count.kind == DecisionVariable.INTEGER
+    assert (count.bound.lower, count.bound.upper) == (3, 5)
 
 
 def test_model_to_instance():
