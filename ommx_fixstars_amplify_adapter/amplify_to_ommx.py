@@ -104,7 +104,9 @@ class OMMXInstanceBuilder:
             )
         else:
             poly_dict[()] = constant
-            # OMMX accepts sequence keys and reads the tuple keys from Amplify.
+            # FIXME: Remove this cast once the minimum supported OMMX version
+            # accepts tuple keys in the Polynomial constructor's type annotation.
+            # https://github.com/Jij-Inc/ommx/issues/1420
             coefficients = typing.cast(
                 typing.Mapping[typing.Sequence[int], float], poly_dict
             )
