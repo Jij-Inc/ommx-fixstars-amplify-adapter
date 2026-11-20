@@ -8,6 +8,7 @@ from ommx import (
     Instance,
     DecisionVariable,
     Constraint,
+    ConstraintKind,
     Function,
     State,
     Equality,
@@ -17,7 +18,6 @@ from ommx import (
     PolynomialRequirement,
     PreparationPolicy,
     Sense,
-    SpecialConstraintKind,
     SpecialConstraintPreparation,
 )
 from ommx.adapter import DiagnosticsSink, SolverAdapter
@@ -60,8 +60,8 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         return PreparationPolicy(
             special_constraints=SpecialConstraintPreparation.lower_special_constraints(
                 kinds={
-                    SpecialConstraintKind.Indicator,
-                    SpecialConstraintKind.Sos1,
+                    ConstraintKind.Indicator,
+                    ConstraintKind.Sos1,
                 }
             )
         )
@@ -260,12 +260,19 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
     def _set_decision_variables(self):
         self.variable_map: dict[int, amplify.Poly] = {}
         gen = amplify.VariableGenerator()
-        for var in self.instance.used_decision_variables:
+        for var in self.instance.active_decision_variables:
             if var.kind == DecisionVariable.BINARY:
-                self.variable_map[var.id] = gen.scalar(
+                binary = gen.scalar(
                     amplify.VariableType.Binary,
                     name=_make_variable_label(var),
                 )
+                self.variable_map[var.id] = binary
+                bound = var.bound
+                if bound.lower == bound.upper:
+                    # Amplify ignores bounds on Binary variables.
+                    self.model += amplify.equal_to(
+                        binary, bound.lower, label=f"Fixed binary [id: {var.id}]"
+                    )
             elif var.kind == DecisionVariable.INTEGER:
                 self.variable_map[var.id] = gen.scalar(
                     amplify.VariableType.Integer,
@@ -307,8 +314,16 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             )
 
     def _set_constraints(self):
-        # Handle one_hot constraints
-        for one_hot_id, one_hot in self.instance.one_hot_constraints.items():
+        unsupported = self.instance.active_constraint_kinds - {
+            ConstraintKind.Regular,
+            ConstraintKind.OneHot,
+        }
+        if unsupported:
+            raise AssertionError(
+                f"Unsupported active constraint families after applicability validation: {unsupported}"
+            )
+        active = self.instance.active_constraints
+        for one_hot_id, one_hot in active.of_kind(ConstraintKind.OneHot).items():
             # convert one_hot constraint to polynomial
             one_hot_poly = amplify.sum(
                 self.variable_map[var_id] for var_id in one_hot.variables
@@ -321,7 +336,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             Constraint.EQUAL_TO_ZERO,
             Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
         }
-        for constr_id, constr in self.instance.constraints.items():
+        for constr_id, constr in active.of_kind(ConstraintKind.Regular).items():
             if constr.equality not in supported_equalities:
                 raise AssertionError(
                     "Unsupported constraint equality reached after applicability "
@@ -338,7 +353,8 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
                 )
 
             if constraint_degree == 0:
-                if constr.evaluate({}, atol=ABSOLUTE_TOLERANCE).feasible:
+                evaluated = constr.evaluate({}, atol=ABSOLUTE_TOLERANCE)
+                if evaluated.is_feasible(atol=ABSOLUTE_TOLERANCE):
                     continue
                 raise OMMXFixstarsAmplifyAdapterError(
                     f"Infeasible constant constraint was found: id {constr_id}"

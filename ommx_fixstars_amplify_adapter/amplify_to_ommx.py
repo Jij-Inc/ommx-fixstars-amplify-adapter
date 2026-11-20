@@ -208,7 +208,9 @@ class OMMXInstanceBuilder:
                     f"Unintended constraint type: {constraint.conditional[1]}"
                 )
 
-        return dict(enumerate(constraints)), dict(enumerate(one_hot_constraints))
+        return dict(enumerate(constraints)), dict(
+            enumerate(one_hot_constraints, start=len(constraints))
+        )
 
     def _detect_one_hot(
         self,
@@ -267,13 +269,10 @@ class OMMXInstanceBuilder:
 
     def build(self) -> Instance:
         if self._is_empty_model():
-            # NOTE:
-            # Note that even in the case of a non-zero constant objective function,
-            # it will be returned as objective=0.
             return Instance.from_components(
                 decision_variables=[],
-                objective=0,
-                constraints={},
+                objective=self.objective(),
+                active_constraints={},
                 sense=self.sense(),
             )
         else:
@@ -281,8 +280,8 @@ class OMMXInstanceBuilder:
             return Instance.from_components(
                 decision_variables=self.decision_variables(),
                 objective=self.objective(),
-                constraints=constraints,
-                one_hot_constraints=one_hot_constraints,
+                active_constraints=constraints,
+                active_one_hot_constraints=one_hot_constraints,
                 sense=self.sense(),
             )
 
