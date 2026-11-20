@@ -49,14 +49,6 @@ solution = OMMXFixstarsAmplifyAdapter.solve(ommx_instance, amplify_token=token)
 print(solution.decision_variables_df())
 ```
 
-`solve()` prepares a copy of the input instance. When constructing
-`OMMXFixstarsAmplifyAdapter(instance)` directly, keep `instance` unchanged from
-construction until you finish using the adapter, including configuring
-`solver_input`, running Amplify, and decoding results. To edit the original
-in the meantime, pass `copy.copy(instance)` to the constructor.
-For `solve_without_preparation(instance, ...)`, keep the input unchanged for
-the duration of the call.
-
 ## Solve problems formulated in Fixstars Amplify SDK with other solvers
 
 The `ommx-fixstars-amplify-adapter` allows problems formulated in Fixstars Amplify SDK to be solved in other solvers.
