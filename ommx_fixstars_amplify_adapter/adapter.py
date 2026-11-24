@@ -201,7 +201,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         the OMMX problem for decoding to remain valid.
 
         :raises ommx.adapter.NoSolutionReturned: If there are active variables
-            to decode and Amplify returned no candidates.
+            to decode and Amplify returned no solution.
 
         Example:
         =========
@@ -261,7 +261,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         if not self.variable_map:
             return State(entries={})
         if len(data) == 0:
-            raise NoSolutionReturned("Amplify returned no candidates.")
+            raise NoSolutionReturned("Amplify returned no solution.")
         try:
             values = data.best.values
             return State(
