@@ -147,15 +147,21 @@ def test_fixed_binary_bound(fixed_value: int) -> None:
         decision_variables=[x], objective=x, active_constraints={}, sense=Sense.Minimize
     )
     adapter = OMMXFixstarsAmplifyAdapter(instance)
-    constraints = adapter.solver_input.constraints
+    model = adapter.solver_input
+    (variable,) = model.variables
+    assert variable.type == amplify.VariableType.Integer
+    lower, upper = variable.lower_bound, variable.upper_bound
+    assert lower is not None and upper is not None
+    assert lower == upper == fixed_value
+    assert len(model.constraints) == 0
     for value in (0, 1):
-        assignment = dict(
-            zip(adapter.solver_input.variables, [float(value)], strict=True)
-        )
-        feasible = all(
-            constraint.is_satisfied(assignment) for constraint in constraints
-        )
+        feasible = lower <= value <= upper
         assert feasible == instance.evaluate({x.id: value}).feasible
+
+    solution = adapter.decode(amplify.solve(model, amplify.AmplifyAEClient()))
+    assert solution.state.entries == {x.id: fixed_value}
+    assert solution.objective == fixed_value
+    assert solution.feasible
 
 
 @pytest.mark.parametrize(

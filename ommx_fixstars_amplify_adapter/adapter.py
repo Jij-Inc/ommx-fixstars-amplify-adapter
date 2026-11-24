@@ -279,28 +279,23 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         self.variable_map: dict[int, amplify.Poly] = {}
         gen = amplify.VariableGenerator()
         for var in self.instance.active_decision_variables:
-            if var.kind == DecisionVariable.BINARY:
-                binary = gen.scalar(
+            bound = var.bound
+            if var.kind == DecisionVariable.BINARY and bound.lower != bound.upper:
+                self.variable_map[var.id] = gen.scalar(
                     amplify.VariableType.Binary,
                     name=_make_variable_label(var),
                 )
-                self.variable_map[var.id] = binary
-                bound = var.bound
-                if bound.lower == bound.upper:
-                    # Amplify requires an equality to fix a Binary variable.
-                    self.model += amplify.equal_to(
-                        binary, bound.lower, label=f"Fixed binary [id: {var.id}]"
-                    )
-            elif var.kind == DecisionVariable.INTEGER:
+            elif var.kind in (DecisionVariable.BINARY, DecisionVariable.INTEGER):
+                # Amplify represents a fixed binary domain as a bounded Integer.
                 self.variable_map[var.id] = gen.scalar(
                     amplify.VariableType.Integer,
-                    bounds=(var.bound.lower, var.bound.upper),
+                    bounds=(bound.lower, bound.upper),
                     name=_make_variable_label(var),
                 )
             elif var.kind == DecisionVariable.CONTINUOUS:
                 self.variable_map[var.id] = gen.scalar(
                     amplify.VariableType.Real,
-                    bounds=(var.bound.lower, var.bound.upper),
+                    bounds=(bound.lower, bound.upper),
                     name=_make_variable_label(var),
                 )
             else:
