@@ -158,6 +158,7 @@ def test_fixed_binary_bound(fixed_value: int) -> None:
         feasible = lower <= value <= upper
         assert feasible == instance.evaluate({x.id: value}).feasible
 
+    # The only variable is fixed, so Amplify returns the solution locally without a token.
     solution = adapter.decode(amplify.solve(model, amplify.AmplifyAEClient()))
     assert solution.state.entries == {x.id: fixed_value}
     assert solution.objective == fixed_value
