@@ -71,6 +71,14 @@ def test_rejects_unsupported_variable_kinds(decision_variable, kind):
     assert mismatch.variable_ids == {0}
 
 
+def test_solve_without_preparation_checks_applicability_before_requiring_token():
+    instance = Instance.minimize()
+    instance.objective = instance.new_semi_integer("x", lower=1, upper=3)
+
+    with pytest.raises(AdapterNotApplicableError):
+        OMMXFixstarsAmplifyAdapter.solve_without_preparation(instance)
+
+
 def test_accepts_unused_unsupported_variable_kind_without_mutating_input():
     used = DecisionVariable.binary(0)
     unused = DecisionVariable.semi_integer(1, lower=1, upper=3)
