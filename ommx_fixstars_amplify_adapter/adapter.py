@@ -1,5 +1,5 @@
 import copy
-from typing import ClassVar
+from typing import ClassVar, final
 
 import amplify
 
@@ -8,7 +8,9 @@ from ommx import (
     Instance,
     DecisionVariable,
     Constraint,
+    ConstraintKind,
     Function,
+    InfeasibleDetected,
     State,
     Equality,
     InstanceClass,
@@ -17,10 +19,9 @@ from ommx import (
     PolynomialRequirement,
     PreparationPolicy,
     Sense,
-    SpecialConstraintKind,
     SpecialConstraintPreparation,
 )
-from ommx.adapter import DiagnosticsSink, SolverAdapter
+from ommx.adapter import DiagnosticsSink, NoSolutionReturned, SolverAdapter
 
 from .exception import OMMXFixstarsAmplifyAdapterError
 
@@ -28,6 +29,7 @@ from .exception import OMMXFixstarsAmplifyAdapterError
 ABSOLUTE_TOLERANCE = 1e-6
 
 
+@final
 class OMMXFixstarsAmplifyAdapter(SolverAdapter):
     INPUT_CLASS: ClassVar[InstanceClass] = InstanceClass(
         [
@@ -60,14 +62,19 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         return PreparationPolicy(
             special_constraints=SpecialConstraintPreparation.lower_special_constraints(
                 kinds={
-                    SpecialConstraintKind.Indicator,
-                    SpecialConstraintKind.Sos1,
+                    ConstraintKind.Indicator,
+                    ConstraintKind.Sos1,
                 }
             )
         )
 
     def __init__(self, ommx_instance: Instance):
-        """
+        """Build the Amplify model and retain the supplied OMMX instance by reference.
+
+        Keep the instance unchanged from construction until you finish using the
+        adapter, including backend configuration, execution, and decoding. To edit
+        the original during that time, pass ``copy.copy(instance)`` to the constructor.
+
         :param ommx_instance: The ommx.Instance to solve.
         """
         self.require_applicable(ommx_instance)
@@ -89,6 +96,8 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
     ) -> Solution:
         """Solve the given ommx.Instance using Fixstars Amplify AE, returning an
         ommx.Solution.
+
+        Preparation runs on a private copy of the supplied instance.
 
         ``diagnostics`` are not available through this Adapter.
         The reserved ``diagnostics`` argument is accepted for compatibility with
@@ -141,6 +150,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
 
         Use this method when the input instance has already been prepared,
         possibly with a custom policy, or already belongs to ``INPUT_CLASS``.
+        Keep the supplied instance unchanged until this call returns.
 
         ``diagnostics`` are not available through this Adapter.
         The reserved ``diagnostics`` argument is accepted for compatibility with
@@ -157,6 +167,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         :param diagnostics: Reserved for OMMX SolverAdapter compatibility;
           currently unused.
         """
+        adapter = cls(ommx_instance)
         if amplify_token == "":
             raise OMMXFixstarsAmplifyAdapterError(
                 "No Fixstars Amplify token specified -- cannot instantiate client"
@@ -164,7 +175,6 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
 
         # TODO: Update the diagnostics docstrings when support is implemented.
         _ = diagnostics
-        adapter = cls(ommx_instance)
 
         client = amplify.AmplifyAEClient()
         client.token = amplify_token
@@ -185,10 +195,13 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
         `solver_input` for further adjustment of the solver parameters, and
         separately optimizing the model.
 
-        Note that alterations to the model may make the decoding process
-        incompatible -- decoding will only work if the model still describes
-        effectively the same problem as the OMMX instance used to create the
-        adapter.
+        Decoding evaluates the state against the OMMX instance passed to the
+        constructor. Keep that instance unchanged while using the adapter.
+        Any changes to the Amplify model must preserve its correspondence with
+        the OMMX problem for decoding to remain valid.
+
+        :raises ommx.adapter.NoSolutionReturned: If there are active variables
+            to decode and Amplify returned no solution.
 
         Example:
         =========
@@ -245,11 +258,16 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             >>> result = amplify.solve(model, client)  # doctest: +SKIP
             >>> state = adapter.decode_to_state(result)  # doctest: +SKIP
         """
+        if not self.variable_map:
+            return State(entries={})
+        if len(data) == 0:
+            raise NoSolutionReturned("Amplify returned no solution.")
         try:
+            values = data.best.values
             return State(
                 entries={
-                    key: value.evaluate(data.best.values)
-                    for key, value in self.variable_map.items()
+                    var_id: poly.evaluate(values)
+                    for var_id, poly in self.variable_map.items()
                 }
             )
         except RuntimeError as e:
@@ -260,22 +278,24 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
     def _set_decision_variables(self):
         self.variable_map: dict[int, amplify.Poly] = {}
         gen = amplify.VariableGenerator()
-        for var in self.instance.used_decision_variables:
-            if var.kind == DecisionVariable.BINARY:
+        for var in self.instance.active_decision_variables:
+            bound = var.bound
+            if var.kind == DecisionVariable.BINARY and bound.lower != bound.upper:
                 self.variable_map[var.id] = gen.scalar(
                     amplify.VariableType.Binary,
                     name=_make_variable_label(var),
                 )
-            elif var.kind == DecisionVariable.INTEGER:
+            elif var.kind in (DecisionVariable.BINARY, DecisionVariable.INTEGER):
+                # Amplify represents a fixed binary domain as a bounded Integer.
                 self.variable_map[var.id] = gen.scalar(
                     amplify.VariableType.Integer,
-                    bounds=(var.bound.lower, var.bound.upper),
+                    bounds=(bound.lower, bound.upper),
                     name=_make_variable_label(var),
                 )
             elif var.kind == DecisionVariable.CONTINUOUS:
                 self.variable_map[var.id] = gen.scalar(
                     amplify.VariableType.Real,
-                    bounds=(var.bound.lower, var.bound.upper),
+                    bounds=(bound.lower, bound.upper),
                     name=_make_variable_label(var),
                 )
             else:
@@ -307,8 +327,16 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             )
 
     def _set_constraints(self):
-        # Handle one_hot constraints
-        for one_hot_id, one_hot in self.instance.one_hot_constraints.items():
+        unsupported = self.instance.active_constraint_kinds - {
+            ConstraintKind.Regular,
+            ConstraintKind.OneHot,
+        }
+        if unsupported:
+            raise AssertionError(
+                f"Unsupported active constraint families after applicability validation: {unsupported}"
+            )
+        active = self.instance.active_constraints
+        for one_hot_id, one_hot in active.of_kind(ConstraintKind.OneHot).items():
             # convert one_hot constraint to polynomial
             one_hot_poly = amplify.sum(
                 self.variable_map[var_id] for var_id in one_hot.variables
@@ -321,7 +349,7 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
             Constraint.EQUAL_TO_ZERO,
             Constraint.LESS_THAN_OR_EQUAL_TO_ZERO,
         }
-        for constr_id, constr in self.instance.constraints.items():
+        for constr_id, constr in active.of_kind(ConstraintKind.Regular).items():
             if constr.equality not in supported_equalities:
                 raise AssertionError(
                     "Unsupported constraint equality reached after applicability "
@@ -338,9 +366,10 @@ class OMMXFixstarsAmplifyAdapter(SolverAdapter):
                 )
 
             if constraint_degree == 0:
-                if constr.evaluate({}, atol=ABSOLUTE_TOLERANCE).feasible:
+                evaluated = constr.evaluate({}, atol=ABSOLUTE_TOLERANCE)
+                if evaluated.is_feasible(atol=ABSOLUTE_TOLERANCE):
                     continue
-                raise OMMXFixstarsAmplifyAdapterError(
+                raise InfeasibleDetected(
                     f"Infeasible constant constraint was found: id {constr_id}"
                 )
 

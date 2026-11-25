@@ -1,9 +1,11 @@
 import amplify
 import pytest
 from ommx import (
+    Bound,
     Constraint,
     DecisionVariable,
     Equality,
+    InfeasibleDetected,
     Instance,
     Linear,
     OneHotConstraint,
@@ -13,7 +15,6 @@ from ommx import (
 )
 
 from ommx_fixstars_amplify_adapter.adapter import OMMXFixstarsAmplifyAdapter
-from ommx_fixstars_amplify_adapter.exception import OMMXFixstarsAmplifyAdapterError
 from conftest import assert_amplify_model
 
 
@@ -102,7 +103,7 @@ def test_instance_to_model():
     instance = Instance.from_components(
         decision_variables=decision_variables,
         objective=objective,
-        constraints=constraints,
+        active_constraints=constraints,
         sense=Instance.MINIMIZE,
     )
 
@@ -119,27 +120,58 @@ def test_instance_to_model():
     expected_model = amplify.Model()
     expected_model += 2.0 * (x * y * z) + 3.0 * (y * z) + 4.0 * z + 5.0
     expected_model += amplify.less_equal(
-        6 * x + 7 * y + 8 * z - 9, 0, label="constraintA [id: 0]"
+        6 * x + 7 * y + 8 * z - 9, 0, label="constraintA [id: ConstraintID(0)]"
     )
     expected_model += amplify.equal_to(
         10.0 * x * y + 11.0 * y * z + 12.0 * x * z - 13.0,
         0,
-        label="constraintB [id: 1]",
+        label="constraintB [id: ConstraintID(1)]",
     )
     expected_model += amplify.less_equal(
-        -14.0 * x * y * z + 15.0, 0.0, label="constraintC [id: 2]"
+        -14.0 * x * y * z + 15.0, 0.0, label="constraintC [id: ConstraintID(2)]"
     )
-    expected_model += amplify.less_equal(-1 * w + 16, 0, label="constraintD [id: 3]")
-    expected_model += amplify.less_equal(w - 17, 0, label="constraintE [id: 4]")
+    expected_model += amplify.less_equal(
+        -1 * w + 16, 0, label="constraintD [id: ConstraintID(3)]"
+    )
+    expected_model += amplify.less_equal(
+        w - 17, 0, label="constraintE [id: ConstraintID(4)]"
+    )
 
     assert_amplify_model(model, expected_model)
+
+
+@pytest.mark.parametrize("fixed_value", [0, 1])
+def test_fixed_binary_bound(fixed_value: int) -> None:
+    x = DecisionVariable(7, DecisionVariable.BINARY, Bound(fixed_value, fixed_value))
+    instance = Instance.from_components(
+        decision_variables=[x], objective=x, active_constraints={}, sense=Sense.Minimize
+    )
+    adapter = OMMXFixstarsAmplifyAdapter(instance)
+    model = adapter.solver_input
+    (variable,) = model.variables
+    assert variable.type == amplify.VariableType.Integer
+    lower, upper = variable.lower_bound, variable.upper_bound
+    assert lower is not None and upper is not None
+    assert lower == upper == fixed_value
+    assert len(model.constraints) == 0
+    for value in (0, 1):
+        feasible = lower <= value <= upper
+        assert feasible == instance.evaluate({x.id: value}).feasible
+
+    # The only variable is fixed, so Amplify returns the solution locally without a token.
+    solution = adapter.decode(amplify.solve(model, amplify.AmplifyAEClient()))
+    assert solution.state.entries == {x.id: fixed_value}
+    assert solution.objective == fixed_value
+    assert solution.feasible
 
 
 @pytest.mark.parametrize(
     ("equality", "constant"),
     [
         (Equality.EqualToZero, 0.0),
+        (Equality.EqualToZero, 5e-7),
         (Equality.LessThanOrEqualToZero, -1.0),
+        (Equality.LessThanOrEqualToZero, 5e-7),
     ],
 )
 def test_skips_feasible_constant_constraint(
@@ -148,7 +180,7 @@ def test_skips_feasible_constant_constraint(
     instance = Instance.from_components(
         decision_variables=[],
         objective=0,
-        constraints={
+        active_constraints={
             0: Constraint(
                 function=constant,
                 equality=equality,
@@ -175,7 +207,7 @@ def test_rejects_infeasible_constant_constraint(
     instance = Instance.from_components(
         decision_variables=[],
         objective=0,
-        constraints={
+        active_constraints={
             0: Constraint(
                 function=constant,
                 equality=equality,
@@ -185,8 +217,8 @@ def test_rejects_infeasible_constant_constraint(
     )
 
     with pytest.raises(
-        OMMXFixstarsAmplifyAdapterError,
-        match="Infeasible constant constraint was found: id 0",
+        InfeasibleDetected,
+        match=r"Infeasible constant constraint was found: id ConstraintID\(0\)",
     ):
         OMMXFixstarsAmplifyAdapter(instance)
 
@@ -197,8 +229,8 @@ def test_one_hot_constraint():
     instance = Instance.from_components(
         decision_variables=x,
         objective=0,
-        constraints={},
-        one_hot_constraints={
+        active_constraints={},
+        active_one_hot_constraints={
             0: OneHotConstraint(variables=[x[0], x[1], x[2]], name="one_hot_constraint")
         },
         sense=Instance.MINIMIZE,
@@ -214,7 +246,9 @@ def test_one_hot_constraint():
     y2 = gen.scalar("Binary", name="x_{2}")
 
     expected_model = amplify.Model()
-    expected_model += amplify.one_hot(y0 + y1 + y2, label="one_hot_constraint [id: 0]")
+    expected_model += amplify.one_hot(
+        y0 + y1 + y2, label="one_hot_constraint [id: OneHotConstraintID(0)]"
+    )
 
     assert_amplify_model(model, expected_model)
 
@@ -225,9 +259,9 @@ def test_regular_and_one_hot_constraints():
     instance = Instance.from_components(
         decision_variables=x,
         objective=x[0] + 2 * x[1],
-        constraints={0: 3 * x[0] + 5 * x[2] <= 1},
-        one_hot_constraints={
-            0: OneHotConstraint(variables=[x[0], x[1], x[2]], name="one_hot_constraint")
+        active_constraints={0: 3 * x[0] + 5 * x[2] <= 1},
+        active_one_hot_constraints={
+            1: OneHotConstraint(variables=[x[0], x[1], x[2]], name="one_hot_constraint")
         },
         sense=Instance.MINIMIZE,
     )
@@ -243,8 +277,12 @@ def test_regular_and_one_hot_constraints():
 
     expected_model = amplify.Model()
     expected_model += y0 + 2 * y1
-    expected_model += amplify.one_hot(y0 + y1 + y2, label="one_hot_constraint [id: 0]")
-    expected_model += amplify.less_equal(3 * y0 + 5 * y2 - 1, 0, label="None [id: 0]")
+    expected_model += amplify.one_hot(
+        y0 + y1 + y2, label="one_hot_constraint [id: OneHotConstraintID(1)]"
+    )
+    expected_model += amplify.less_equal(
+        3 * y0 + 5 * y2 - 1, 0, label="None [id: ConstraintID(0)]"
+    )
 
     assert_amplify_model(model, expected_model)
 
@@ -258,8 +296,8 @@ def test_multiple_one_hot_constraints():
     instance = Instance.from_components(
         decision_variables=x,
         objective=x[0] + 2 * x[3],
-        constraints={},
-        one_hot_constraints={
+        active_constraints={},
+        active_one_hot_constraints={
             0: OneHotConstraint(variables=[x[0], x[1]], name="row"),
             1: OneHotConstraint(variables=[x[2], x[3]], name="row"),
             2: OneHotConstraint(variables=[x[0], x[2]], name="col"),
@@ -277,10 +315,18 @@ def test_multiple_one_hot_constraints():
 
     expected_model = amplify.Model()
     expected_model += y[0] + 2 * y[3]
-    expected_model += amplify.one_hot(y[0] + y[1], label="row [id: 0]")
-    expected_model += amplify.one_hot(y[2] + y[3], label="row [id: 1]")
-    expected_model += amplify.one_hot(y[0] + y[2], label="col [id: 2]")
-    expected_model += amplify.one_hot(y[1] + y[3], label="col [id: 3]")
+    expected_model += amplify.one_hot(
+        y[0] + y[1], label="row [id: OneHotConstraintID(0)]"
+    )
+    expected_model += amplify.one_hot(
+        y[2] + y[3], label="row [id: OneHotConstraintID(1)]"
+    )
+    expected_model += amplify.one_hot(
+        y[0] + y[2], label="col [id: OneHotConstraintID(2)]"
+    )
+    expected_model += amplify.one_hot(
+        y[1] + y[3], label="col [id: OneHotConstraintID(3)]"
+    )
 
     assert_amplify_model(model, expected_model)
 
@@ -290,13 +336,13 @@ def test_partial_evaluate():
     instance = Instance.from_components(
         decision_variables=x,
         objective=1 * x[0] + 2 * x[1] + 3 * x[2],
-        constraints={0: 1 * x[0] + 2 * x[1] + 3 * x[2] <= 2},
+        active_constraints={0: 1 * x[0] + 2 * x[1] + 3 * x[2] <= 2},
         sense=Instance.MINIMIZE,
     )
-    assert instance.used_decision_variables == x
+    assert instance.active_decision_variables == x
     partial = instance.partial_evaluate({0: 1})
     # x[0] is no longer present in the problem
-    assert partial.used_decision_variables == x[1:]
+    assert partial.active_decision_variables == x[1:]
 
     adapter = OMMXFixstarsAmplifyAdapter(partial)
     model = adapter.solver_input
@@ -308,13 +354,13 @@ def test_partial_evaluate():
     expected_model = amplify.Model()
     expected_model += 2.0 * y1 + 3.0 * y2 + 1.0
     expected_model += amplify.less_equal(
-        2.0 * y1 + 3.0 * y2 - 1.0, 0, label="None [id: 0]"
+        2.0 * y1 + 3.0 * y2 - 1.0, 0, label="None [id: ConstraintID(0)]"
     )
 
     assert_amplify_model(model, expected_model)
 
     partial = instance.partial_evaluate({1: 1})
-    assert partial.used_decision_variables == [x[0], x[2]]
+    assert partial.active_decision_variables == [x[0], x[2]]
 
     adapter = OMMXFixstarsAmplifyAdapter(partial)
     model = adapter.solver_input
@@ -326,13 +372,13 @@ def test_partial_evaluate():
     expected_model_2 = amplify.Model()
     expected_model_2 += 1.0 * y0 + 3.0 * y2 + 2.0
     expected_model_2 += amplify.less_equal(
-        1.0 * y0 + 3.0 * y2 - 0.0, 0, label="None [id: 0]"
+        1.0 * y0 + 3.0 * y2 - 0.0, 0, label="None [id: ConstraintID(0)]"
     )
 
     assert_amplify_model(model, expected_model_2)
 
     partial = instance.partial_evaluate({2: 1})
-    assert partial.used_decision_variables == x[0:2]
+    assert partial.active_decision_variables == x[0:2]
 
     adapter = OMMXFixstarsAmplifyAdapter(partial)
     model = adapter.solver_input
@@ -344,7 +390,7 @@ def test_partial_evaluate():
     expected_model_3 = amplify.Model()
     expected_model_3 += 1.0 * y0 + 2.0 * y1 + 3.0
     expected_model_3 += amplify.less_equal(
-        1.0 * y0 + 2.0 * y1 - (-1.0), 0, label="None [id: 0]"
+        1.0 * y0 + 2.0 * y1 - (-1.0), 0, label="None [id: ConstraintID(0)]"
     )
 
     assert_amplify_model(model, expected_model_3)
@@ -355,12 +401,12 @@ def test_relax_constraint():
     instance = Instance.from_components(
         decision_variables=x,
         objective=x[0] + x[1],
-        constraints={0: x[0] + 2 * x[1] <= 1, 1: x[1] + x[2] <= 1},
+        active_constraints={0: x[0] + 2 * x[1] <= 1, 1: x[1] + x[2] <= 1},
         sense=Instance.MINIMIZE,
     )
 
-    assert instance.used_decision_variables == x
-    instance.relax_constraint(1, "relax")
+    assert instance.active_decision_variables == x
+    instance.deactivate_constraint(1, "relax")
     # id for x[2] is listed as irrelevant
     assert instance.irrelevant_decision_variable_ids() == {x[2].id}
 
@@ -374,7 +420,7 @@ def test_relax_constraint():
     expected_model = amplify.Model()
     expected_model += 1.0 * y0 + 1.0 * y1
     expected_model += amplify.less_equal(
-        1.0 * y0 + 2.0 * y1 - 1.0, 0, label="None [id: 0]"
+        1.0 * y0 + 2.0 * y1 - 1.0, 0, label="None [id: ConstraintID(0)]"
     )
 
     assert_amplify_model(model, expected_model)

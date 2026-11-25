@@ -23,8 +23,8 @@ def test_input_class_accepts_polynomial_instance():
     instance = Instance.from_components(
         decision_variables=[*binary, integer, continuous],
         objective=binary[0] + binary[1] + integer + continuous,
-        constraints={0: integer + continuous == 1, 1: integer - continuous <= 2},
-        one_hot_constraints={0: OneHotConstraint(variables=binary)},
+        active_constraints={0: integer + continuous == 1, 1: integer - continuous <= 2},
+        active_one_hot_constraints={2: OneHotConstraint(variables=binary)},
         sense=Sense.Minimize,
     )
     before = instance.to_v2_bytes()
@@ -56,7 +56,7 @@ def test_rejects_unsupported_variable_kinds(decision_variable, kind):
     instance = Instance.from_components(
         decision_variables=decision_variable,
         objective=Linear(terms={0: 1.0}),
-        constraints={0: constraint},
+        active_constraints={0: constraint},
         sense=Instance.MINIMIZE,
     )
 
@@ -71,13 +71,21 @@ def test_rejects_unsupported_variable_kinds(decision_variable, kind):
     assert mismatch.variable_ids == {0}
 
 
+def test_solve_without_preparation_checks_applicability_before_requiring_token():
+    instance = Instance.minimize()
+    instance.objective = instance.new_semi_integer("x", lower=1, upper=3)
+
+    with pytest.raises(AdapterNotApplicableError):
+        OMMXFixstarsAmplifyAdapter.solve_without_preparation(instance)
+
+
 def test_accepts_unused_unsupported_variable_kind_without_mutating_input():
     used = DecisionVariable.binary(0)
     unused = DecisionVariable.semi_integer(1, lower=1, upper=3)
     instance = Instance.from_components(
         decision_variables=[used, unused],
         objective=2 * used + 1,
-        constraints={},
+        active_constraints={},
         sense=Sense.Minimize,
     )
     before = instance.to_v2_bytes()
